@@ -138,6 +138,69 @@ module issuer_tb;
         $display("T=%0t: CDB broadcast for reg 2. FU operands: %h, depvals: %h", $time, fu_operands[1], fu_depvals[1]);
 
         #50;
+
+        // Test case 3: Stall logic
+        $display("T=%0t: --- Starting Stall Logic Test ---", $time);
+        
+        // Setup: Fill reservation stations for FU 0.
+        // To prevent RS from clearing, we make the FU busy.
+        fus_busy = 8'b00000001; // FU 0 is busy
+        fuid = 3'h0;
+        readregs = '{5'h0, 5'h0}; // Not waiting on any regs
+        cdbval = 8'h0;
+        cdbid = 4'h0;
+        cdbtransmit = 1;
+
+        for (int i = 0; i < RS_DEPTH; i = i + 1) begin
+            robid = 8'h10 + i;
+            operand = 8'h10 + i;
+            issue_instr = 1;
+            #10; // 1 clock cycle
+            issue_instr = 0;
+            $display("T=%0t: Issued setup instruction %d to FU 0 (robid=%h)", $time, i, robid);
+        end
+        
+        #10;
+        
+        // Attempt to issue one more instruction, which should stall.
+        robid = 8'h20;
+        operand = 8'h20;
+        issue_instr = 1;
+        $display("T=%0t: Attempting to issue to full RS queue for FU 0 (robid=%h). Expecting stall.", $time, robid);
+        
+        #2; // Let signals propagate
+        if (stall) begin
+            $display("T=%0t: Stall signal is HIGH, as expected.", $time);
+        end else begin
+            $display("T=%0t: ERROR: Stall signal is LOW, but was expected to be HIGH.", $time);
+            //$finish;
+        end
+
+        // Hold issue_instr high. Stall should remain high.
+        #20;
+        if (stall) begin
+            $display("T=%0t: Stall signal remains HIGH while issue_instr is held, as expected.", $time);
+        end else begin
+            $display("T=%0t: ERROR: Stall signal went LOW prematurely.", $time);
+            //$finish;
+        end
+        
+        // Now, make the FU available. One instruction should issue from RS, freeing a slot.
+        // The stalled instruction should then be accepted, and stall should go low.
+        $display("T=%0t: Setting fus_busy[0] to 0 to free up FU.", $time);
+        fus_busy = 8'b00000000;
+        
+        #10; // Wait one clock cycle for stall to resolve
+        if (!stall) begin
+            $display("T=%0t: Stall signal is LOW, as expected.", $time);
+        end else begin
+            $display("T=%0t: ERROR: Stall signal remains HIGH, but was expected to be LOW.", $time);
+            //$finish;
+        end
+        
+        issue_instr = 0;
+        
+        #100;
         $finish;
     end
 

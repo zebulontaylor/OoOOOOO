@@ -51,8 +51,9 @@ module renamer(
     output reg[3:0] writeout,
     output reg[3:0] oldwrite,
     input clk,
-    input rst
-    );
+    input rst,
+    input ena
+);
     
     reg[3:0] regtable [7:0];
     reg[3:0] next_write;
@@ -89,13 +90,13 @@ module renamer(
     
     always @(posedge clk) begin
         // Write logic
-        if (writein[0]) begin
+        if (writein[0] && ena) begin
             claimed[next_write] <= 1;
             regtable[writein[3:1]] <= next_write;
         end
         
         // Retire logic
-        if (retirein[0]) begin
+        if (retirein[0] && ena) begin
             claimed[retirein[4:1]] <= 0;
         end
     end

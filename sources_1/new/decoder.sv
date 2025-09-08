@@ -26,14 +26,14 @@ module decoder(
     output reg[4:0] writereg,
     output reg[7:0] flagouts,
     output reg[3:0] fuid
-    );
+);
     logic [15:0] all_flags [15:0];
     
     initial begin
         all_flags = '{
         16'b0000000000000000, // Noop
-        16'b0000000000001110, // ALU
-        16'b0000000000000000, // ALU Imm
+        16'b1000000000001110, // ALU
+        16'b1000000000000000, // ALU Imm
         16'b0000000000000000, // etc
         16'b0000000000000000,
         16'b0000000000000000,

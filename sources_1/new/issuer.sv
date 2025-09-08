@@ -50,7 +50,7 @@ module issuer #(
     input[3:0] cdbid,
     input cdbtransmit,
     
-    output stall,
+    output reg stall,
     
     output logic [7:0] fu_operands [FU_COUNT],
     output logic [7:0] fu_wbs [FU_COUNT],
@@ -123,8 +123,12 @@ module issuer #(
     end
     
     always_comb begin
+        stall = 0;
         for (integer k=0; k<FU_COUNT; k+=1) begin
             camtransmit[k][0] = (k == fuid) && issue_instr;
+            if (camtransmit[k][RS_DEPTH]) begin
+                stall = 1;
+            end
         end
     end
 
