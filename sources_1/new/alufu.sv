@@ -79,6 +79,7 @@ module alufu(
         endcase
     end
 
+    // ------ Nonspecific to ALU ------
     wire request_cdb = input_transmit | awaiting_cdb;
     wire grant_cdb = request_cdb & ~cdb_transmit;
 
