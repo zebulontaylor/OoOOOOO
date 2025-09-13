@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 09/03/2025 11:03:33 AM
+// Create Date: 09/12/2025 07:11:37 PM
 // Design Name: 
-// Module Name: alufu
+// Module Name: selfu
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,8 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
-module alufu(
+module selfu(
     input clk,
     input rst,
 
@@ -51,20 +50,17 @@ module alufu(
     // STALLING
     output reg busy
 );
-    wire[3:0] op;
     wire[7:0] a, b;
+    wire wb_pc;
 
     always_comb begin
-        a = depvals[0];
-        if (flag[2]) begin // Imm ALU
+        wb_pc = flag[0];
+        a = depvals[0];  // Is this the correct depval?
+
+        if (flag[1]) begin
             b = operand;
-            if (flag[3]) // Add Imm
-                op = 4'h0;
-            else // XOR Imm
-                op = 4'h4;
-        end else begin // Normal ALU
+        end else begin
             b = depvals[1];
-            op = operand[7:4];
         end
     end
 
@@ -77,20 +73,10 @@ module alufu(
 
     reg[7:0] result;
     always @(*) begin
-        case (op)
-            4'h0: result = a + b;
-            4'h1: result = a - b;
-            4'h2: result = a & b;
-            4'h3: result = a | b;
-            4'h4: result = a ^ b;
-            4'h5: result = ~(a | b);
-            4'h6: result = ~(a & b);
-            4'h7: result = ~(a ^ b);
-            default: result = 8'b0;
-        endcase
+        result = flags[1] ? b : a;
     end
 
-    // ------ Nonspecific to ALU ------
+    // ------ Nonspecific to SEL ------
     wire request_cdb = input_transmit | awaiting_cdb;
     wire grant_cdb = request_cdb & ~cdb_transmit;
 
@@ -129,7 +115,7 @@ module alufu(
             awaiting_rob <= 0;
         end else begin
             if (input_transmit) begin
-                if (cdb_transmit) awaiting_cdb <= 1;
+                if (cdb_transmit & !wb_pc) awaiting_cdb <= 1;
                 if (rob_transmit) awaiting_rob <= 1;
                 
                 if (cdb_transmit | rob_transmit) begin

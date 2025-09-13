@@ -5,7 +5,7 @@
 // 
 // Create Date: 09/03/2025 11:03:33 AM
 // Design Name: 
-// Module Name: alufu
+// Module Name: cjumpfu
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module alufu(
+module cjumpfu(
     input clk,
     input rst,
 
@@ -51,21 +51,14 @@ module alufu(
     // STALLING
     output reg busy
 );
-    wire[3:0] op;
     wire[7:0] a, b;
+    wire[3:0] cond;
+    wire[7:0] updated_flags;
 
     always_comb begin
         a = depvals[0];
-        if (flag[2]) begin // Imm ALU
-            b = operand;
-            if (flag[3]) // Add Imm
-                op = 4'h0;
-            else // XOR Imm
-                op = 4'h4;
-        end else begin // Normal ALU
-            b = depvals[1];
-            op = operand[7:4];
-        end
+        b = depvals[1];
+        cond = operand[7:4];
     end
 
     reg[7:0] stored_result;
@@ -76,21 +69,20 @@ module alufu(
     reg awaiting_rob;
 
     reg[7:0] result;
-    always @(*) begin
-        case (op)
-            4'h0: result = a + b;
-            4'h1: result = a - b;
-            4'h2: result = a & b;
-            4'h3: result = a | b;
-            4'h4: result = a ^ b;
-            4'h5: result = ~(a | b);
-            4'h6: result = ~(a & b);
-            4'h7: result = ~(a ^ b);
-            default: result = 8'b0;
-        endcase
+
+    wire msb;
+    wire lsbs;
+    wire take_branch;
+    always_comb begin
+        msb = a[7];
+        lsbs = |a[6:0];
+        take_branch = cond[{msb, lsbs}];
+        result = b;
+        updated_flags = flags;
+        updated_flags[5] = take_branch;
     end
 
-    // ------ Nonspecific to ALU ------
+    // ------ Nonspecific to CJump ------
     wire request_cdb = input_transmit | awaiting_cdb;
     wire grant_cdb = request_cdb & ~cdb_transmit;
 
@@ -110,7 +102,7 @@ module alufu(
         rob_transmit_out = rob_transmit | request_rob;
         if (grant_rob) begin
             robid_out = awaiting_rob ? stored_robid : robid;
-            flags_out = awaiting_rob ? stored_flags : flags;
+            flags_out = awaiting_rob ? stored_flags : updated_flags;
             wbs_out = awaiting_rob ? stored_wbs : wbs;
             value_out = awaiting_rob ? stored_result : result;
         end else begin
@@ -135,7 +127,7 @@ module alufu(
                 if (cdb_transmit | rob_transmit) begin
                     stored_result <= result;
                     stored_wbs <= wbs;
-                    stored_flags <= flags;
+                    stored_flags <= updated_flags;
                     stored_robid <= robid;
                 end
             end

@@ -5,7 +5,7 @@
 // 
 // Create Date: 09/03/2025 11:03:33 AM
 // Design Name: 
-// Module Name: alufu
+// Module Name: hashfu
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module alufu(
+module hashfu(
     input clk,
     input rst,
 
@@ -51,21 +51,10 @@ module alufu(
     // STALLING
     output reg busy
 );
-    wire[3:0] op;
-    wire[7:0] a, b;
+    wire[7:0] a;
 
     always_comb begin
         a = depvals[0];
-        if (flag[2]) begin // Imm ALU
-            b = operand;
-            if (flag[3]) // Add Imm
-                op = 4'h0;
-            else // XOR Imm
-                op = 4'h4;
-        end else begin // Normal ALU
-            b = depvals[1];
-            op = operand[7:4];
-        end
     end
 
     reg[7:0] stored_result;
@@ -77,20 +66,15 @@ module alufu(
 
     reg[7:0] result;
     always @(*) begin
-        case (op)
-            4'h0: result = a + b;
-            4'h1: result = a - b;
-            4'h2: result = a & b;
-            4'h3: result = a | b;
-            4'h4: result = a ^ b;
-            4'h5: result = ~(a | b);
-            4'h6: result = ~(a & b);
-            4'h7: result = ~(a ^ b);
-            default: result = 8'b0;
-        endcase
+        result = a;  // TODO: pipeline this....
+        result ^= result << 3;
+        result += 8'h61;
+        result ^= result >> 5;
+        result += 8'h61;
+        result ^= result << 7;
     end
 
-    // ------ Nonspecific to ALU ------
+    // ------ Nonspecific to Hash ------
     wire request_cdb = input_transmit | awaiting_cdb;
     wire grant_cdb = request_cdb & ~cdb_transmit;
 

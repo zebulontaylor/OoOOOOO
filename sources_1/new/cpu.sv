@@ -28,6 +28,7 @@ module cpu #(
     input rst
 );
     // ROM STAGE
+    reg halt;
     reg[5:0] pc;
     reg[3:0] robid;
     
@@ -41,16 +42,22 @@ module cpu #(
     rom irom(pc, irom_instr);
     
     always @(posedge clk) begin
-        if (!stall_fetching | branch_transmit) begin
-            if (branch_transmit) begin
+        if ((!stall_fetching | branch_transmit) & !halt) begin
+            stall_fetching <= 0;
+            robid <= robid+1;
+
+            if (branch_transmit & !branch_not_taken) begin
                 pc <= new_pc;
-                stall_fetching <= 0;
-            end else
+            end else begin
                 pc <= pc+1;
+            end
 
             stall_decoding <= stall_fetching;
             decoder_instr <= irom_instr;
-            robid <= robid+1;
+        end
+
+        if (halt) begin
+            decoder_instr <= 0;
         end
     end
     
@@ -60,7 +67,10 @@ module cpu #(
     wire[4:0] decoder_writes;
     wire[4:0] decoder_flags;
     wire[3:0] decoder_fuid;
-    
+    wire decoder_halt;
+
+    initial halt = 0;
+
     reg[1:0][4:0] renamer_reads;
     reg[4:0] renamer_writes;
     reg[4:0] renamer_flags;
@@ -73,11 +83,12 @@ module cpu #(
         .readregs(decoder_reads),
         .writereg(decoder_writes),
         .flagouts(decoder_flags),
-        .fuid(decoder_fuid)
+        .fuid(decoder_fuid),
+        .halt(decoder_halt)
     );
     
     always @(posedge clk) begin
-        if (!stall_decoding) begin
+        if (!stall_decoding & !halt) begin
             renamer_reads <= decoder_reads;
             renamer_writes <= decoder_writes;
             renamer_flags <= decoder_flags;
@@ -86,10 +97,22 @@ module cpu #(
 
             stall_renaming <= stall_decoding;
 
-            if (decoder_flags[7]) begin
+            if (decoder_flags[0]) begin
                 stall_fetching <= 1;
                 stall_decoding <= 1;
             end
+
+            if (decoder_halt) begin
+                halt <= 1;
+            end
+        end
+
+        if (halt) begin
+            renamer_reads <= 0;
+            renamer_writes <= 0;
+            renamer_flags <= 0;
+            renamer_fuid <= 0;
+            renamer_operand <= 0;
         end
     end
     
@@ -218,6 +241,94 @@ module cpu #(
         .busy(fus_busy[0])
     );
 
+    selfu selfu_instance(
+        .clk(clk),
+        .rst(rst),
+        .input_transmit(issue_instr),
+        .operand(fu_operands[1]),
+        .depvals(fu_depvals[1]),
+        .wbs(fu_wbs[1]),
+        .flags(fu_flags[1]),
+        .robid(fu_robids[1]),
+        .cdb_transmit(fu_cdb_transmit[1]),
+        .cdb_transmit_out(fu_cdb_transmit[2]),
+        .cdb_id(fu_cdb_id[1]),
+        .cdb_val(fu_cdb_val[1]),
+        .rob_transmit(fu_rob_transmit[1]),
+        .rob_transmit_out(fu_rob_transmit[2]),
+        .robid_out(fu_robids_out[1]),
+        .flags_out(fu_flags_out[1]),
+        .wbs_out(fu_wbs_out[1]),
+        .value_out(fu_value_out[1]),
+        .busy(fus_busy[1])
+    );
+
+    multfu multfu_instance(
+        .clk(clk),
+        .rst(rst),
+        .input_transmit(issue_instr),
+        .operand(fu_operands[2]),
+        .depvals(fu_depvals[2]),
+        .wbs(fu_wbs[2]),
+        .flags(fu_flags[2]),
+        .robid(fu_robids[2]),
+        .cdb_transmit(fu_cdb_transmit[2]),
+        .cdb_transmit_out(fu_cdb_transmit[3]),
+        .cdb_id(fu_cdb_id[2]),
+        .cdb_val(fu_cdb_val[2]),
+        .rob_transmit(fu_rob_transmit[2]),
+        .rob_transmit_out(fu_rob_transmit[3]),
+        .robid_out(fu_robids_out[2]),
+        .flags_out(fu_flags_out[2]),
+        .wbs_out(fu_wbs_out[2]),
+        .value_out(fu_value_out[2]),
+        .busy(fus_busy[2])
+    );
+
+    hashfu hashfu_instance(
+        .clk(clk),
+        .rst(rst),
+        .input_transmit(issue_instr),
+        .operand(fu_operands[3]),
+        .depvals(fu_depvals[3]),
+        .wbs(fu_wbs[3]),
+        .flags(fu_flags[3]),
+        .robid(fu_robids[3]),
+        .cdb_transmit(fu_cdb_transmit[3]),
+        .cdb_transmit_out(fu_cdb_transmit[4]),
+        .cdb_id(fu_cdb_id[3]),
+        .cdb_val(fu_cdb_val[3]),
+        .rob_transmit(fu_rob_transmit[3]),
+        .rob_transmit_out(fu_rob_transmit[4]),
+        .robid_out(fu_robids_out[3]),
+        .flags_out(fu_flags_out[3]),
+        .wbs_out(fu_wbs_out[3]),
+        .value_out(fu_value_out[3]),
+        .busy(fus_busy[3])
+    );
+
+    cjumpfu cjumpfu_instance(
+        .clk(clk),
+        .rst(rst),
+        .input_transmit(issue_instr),
+        .operand(fu_operands[4]),
+        .depvals(fu_depvals[4]),
+        .wbs(fu_wbs[4]),
+        .flags(fu_flags[4]),
+        .robid(fu_robids[4]),
+        .cdb_transmit(fu_cdb_transmit[4]),
+        .cdb_transmit_out(fu_cdb_transmit[5]),
+        .cdb_id(fu_cdb_id[4]),
+        .cdb_val(fu_cdb_val[4]),
+        .rob_transmit(fu_rob_transmit[4]),
+        .rob_transmit_out(fu_rob_transmit[5]),
+        .robid_out(fu_robids_out[4]),
+        .flags_out(fu_flags_out[4]),
+        .wbs_out(fu_wbs_out[4]),
+        .value_out(fu_value_out[4]),
+        .busy(fus_busy[4])
+    );
+
     always_comb begin
         final_robids_out = '0;
         final_wbs_out      = '0;
@@ -259,6 +370,7 @@ module cpu #(
     wire[7:0] rob_prf_value;
     wire rob_branch_transmit;
     wire[7:0] rob_new_pc;
+    wire rob_branch_not_taken;
     wire rob_retire_transmit;
     wire[3:0] rob_retire_id;
 
@@ -271,6 +383,7 @@ module cpu #(
 
     reg[7:0] new_pc;
     reg branch_transmit;
+    reg branch_not_taken;
     reg retire_transmit;
     reg[3:0] retire_id;
 
@@ -287,6 +400,7 @@ module cpu #(
         .prf_value(rob_prf_value),
         .branch_transmit(rob_branch_transmit),
         .new_pc(rob_new_pc),
+        .branch_not_taken(rob_branch_not_taken),
         .retire_transmit(rob_retire_transmit),
         .retire_id(rob_retire_id)
     );
@@ -300,6 +414,7 @@ module cpu #(
         prf_wb_ena <= rob_prf_transmit;
         new_pc <= rob_new_pc;
         branch_transmit <= rob_branch_transmit;
+        branch_not_taken <= rob_branch_not_taken;
         retire_transmit <= rob_retire_transmit;
         retire_id <= rob_retire_id;
     end

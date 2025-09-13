@@ -39,6 +39,7 @@ module rob(
     // BRANCH MANAGEMENT
     output reg branch_transmit,
     output reg[7:0] new_pc,
+    output reg branch_not_taken,
     
     // RETIRING MANAGEMENT
     output reg retire_transmit,
@@ -79,7 +80,7 @@ module rob(
             pos <= pos + 1;
             ready[pos] <= 0;
             
-            if (flags_rf[pos][7]) begin  // WB enabled
+            if (!flags_rf[pos][0]) begin  // Reg WB enabled
                 prf_transmit = 1;
                 retire_transmit = 1;
                 prf_id <= wbs_rf[pos][3:0];
@@ -87,11 +88,12 @@ module rob(
                 retire_id <= wbs_rf[pos][7:4];
             end
             
-            if (flags_rf[pos][6]) begin  // Halt
+            if (flags_rf[pos][4]) begin  // Halt
             end
             
-            if (flags_rf[pos][5]) begin  // Branch
+            if (flags_rf[pos][0]) begin  // Branch
                 branch_transmit = 1;
+                branch_not_taken = flags_rf[pos][5];
                 new_pc <= values_rf[pos];
             end
         end
