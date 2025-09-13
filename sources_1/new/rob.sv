@@ -65,14 +65,19 @@ module rob(
     end
     
     always @(posedge clk) begin
+        prf_transmit = 0;
+        
         if (rob_transmit) begin
             values_rf[robid] <= value;
             wbs_rf[robid] <= wbs;
             flags_rf[robid] <= flags;
             ready[robid] <= 1;
+
+            prf_transmit = 1;
+            prf_id <= wbs_rf[robid][3:0];
+            prf_value <= values_rf[robid];
         end
         
-        prf_transmit = 0;
         branch_transmit = 0;
         retire_transmit = 0;
         
@@ -81,10 +86,10 @@ module rob(
             ready[pos] <= 0;
             
             if (!flags_rf[pos][0]) begin  // Reg WB enabled
-                prf_transmit = 1;
+                //prf_transmit = 1;
                 retire_transmit = 1;
-                prf_id <= wbs_rf[pos][3:0];
-                prf_value <= values_rf[pos];
+                //prf_id <= wbs_rf[pos][3:0];
+                //prf_value <= values_rf[pos];
                 retire_id <= wbs_rf[pos][7:4];
             end
             

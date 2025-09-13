@@ -164,7 +164,9 @@ module cpu #(
     
     wire[FU_COUNT-1:0] fus_busy;
     wire issuer_stall;
-    
+    wire prf_requesting;
+    wire[3:0] prf_requested_id;
+
     issuer issuer_instance(
         .clk(clk),
         .rst(rst),
@@ -185,7 +187,9 @@ module cpu #(
         .fu_wbs(fu_wbs),
         .fu_flags(fu_flags),
         .fu_robids(fu_robids),
-        .fu_depvals(fu_depvals)
+        .fu_depvals(fu_depvals),
+        .prf_requesting(prf_requesting),
+        .prf_id(prf_requested_id)
     );
 
 
@@ -329,6 +333,28 @@ module cpu #(
         .busy(fus_busy[4])
     );
 
+    shiftfu shiftfu_instance(
+        .clk(clk),
+        .rst(rst),
+        .input_transmit(issue_instr),
+        .operand(fu_operands[5]),
+        .depvals(fu_depvals[5]),
+        .wbs(fu_wbs[5]),
+        .flags(fu_flags[5]),
+        .robid(fu_robids[5]),
+        .cdb_transmit(fu_cdb_transmit[5]),
+        .cdb_transmit_out(fu_cdb_transmit[6]),
+        .cdb_id(fu_cdb_id[5]),
+        .cdb_val(fu_cdb_val[5]),
+        .rob_transmit(fu_rob_transmit[5]),
+        .rob_transmit_out(fu_rob_transmit[6]),
+        .robid_out(fu_robids_out[5]),
+        .flags_out(fu_flags_out[5]),
+        .wbs_out(fu_wbs_out[5]),
+        .value_out(fu_value_out[5]),
+        .busy(fus_busy[5])
+    );
+
     always_comb begin
         final_robids_out = '0;
         final_wbs_out      = '0;
@@ -374,8 +400,6 @@ module cpu #(
     wire rob_retire_transmit;
     wire[3:0] rob_retire_id;
 
-    reg[3:0] prf_requested_id;
-    reg prf_requesting;
     reg[7:0] prf_wb_val;
     reg[3:0] prf_wb_id;
     reg[3:0] prf_old_wb;
@@ -406,8 +430,6 @@ module cpu #(
     );
 
     always @(posedge clk) begin
-        prf_requested_id <= rob_prf_id;
-        prf_requesting <= rob_prf_transmit;
         prf_wb_val <= rob_prf_value;
         prf_wb_id <= rob_prf_id;
         prf_old_wb <= rob_prf_id;
@@ -420,13 +442,6 @@ module cpu #(
     end
 
     // PRF STUFF
-
-    reg[3:0] prf_requested_id;
-    reg prf_requesting;
-    reg[7:0] prf_wb_val;
-    reg[3:0] prf_wb_id;
-    reg[3:0] prf_old_wb;
-    reg prf_wb_ena;
 
     wire[15:0] prf_ready_regs;
     wire prf_cdb_transmit;

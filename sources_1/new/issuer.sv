@@ -50,13 +50,16 @@ module issuer #(
     input[3:0] cdbid,
     input cdbtransmit,
     
-    output reg stall,
+    output stall,
     
     output logic [7:0] fu_operands [FU_COUNT],
     output logic [7:0] fu_wbs [FU_COUNT],
     output logic [7:0] fu_flags [FU_COUNT],
     output logic [7:0] fu_robids [FU_COUNT],
-    output logic [1:0][7:0] fu_depvals [FU_COUNT]
+    output logic [1:0][7:0] fu_depvals [FU_COUNT],
+
+    output logic prf_requesting,
+    output logic [3:0] prf_id
 );
     
     reg[RS_DEPTH:0][FU_COUNT-1:0] fubus_claimed;
@@ -68,6 +71,31 @@ module issuer #(
     wire [7:0] robidouts   [FU_COUNT][RS_DEPTH];
     
     wire [1:0][7:0] depvalsouts [FU_COUNT][RS_DEPTH];
+
+    reg[1:0] deps_pending_request;
+
+    reg stall_for_rs;
+    reg stall_for_deps;
+
+    assign stall = stall_for_rs | stall_for_deps;
+
+    always @(posedge clk) begin
+        if (issue_instr) begin
+            deps_pending_request = {readyregs[readregs[0][4:1]], readyregs[readregs[1][4:1]]};
+        end
+
+        prf_requesting = 0;
+        prf_id = 0;
+        if (deps_pending_request[0]) begin
+            deps_pending_request[0] = 0;
+            prf_requesting = 1;
+            prf_id = readregs[0][4:1];
+        end else if (deps_pending_request[1]) begin
+            deps_pending_request[1] = 0;
+            prf_requesting = 1;
+            prf_id = readregs[1][4:1];
+        end
+    end
     
     always_comb begin
         fubus_claimed[0] = fus_busy;
@@ -123,13 +151,15 @@ module issuer #(
     end
     
     always_comb begin
-        stall = 0;
+        stall_for_rs = 0;
         for (integer k=0; k<FU_COUNT; k+=1) begin
             camtransmit[k][0] = (k == fuid) && issue_instr;
             if (camtransmit[k][RS_DEPTH]) begin
-                stall = 1;
+                stall_for_rs = 1;
             end
         end
+
+        stall_for_deps = |deps_pending_request;
     end
 
 

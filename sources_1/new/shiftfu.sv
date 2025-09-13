@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 09/12/2025 07:11:37 PM
+// Create Date: 09/03/2025 11:03:33 AM
 // Design Name: 
-// Module Name: selfu
+// Module Name: shiftfu
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,7 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module selfu(
+
+module shiftfu(
     input clk,
     input rst,
 
@@ -51,29 +52,22 @@ module selfu(
     output reg busy
 );
     wire[7:0] a, b;
-    wire wb_pc;
 
     always_comb begin
-        wb_pc = flags[0];
-        a = depvals[0];  // Is this the correct depval?
-
-        if (flags[1]) begin
-            b = operand;
-        end else begin
-            b = depvals[1];
-        end
+        a = depvals[0];
+        b = depvals[1];
     end
 
     reg[7:0] result;
     always @(*) begin
-        result = flags[1] ? b : a;
+        result = a << b;
     end
 
     fuoutput fuoutput_inst(
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
-        .cdb_write_en(!wb_pc),
+        .cdb_write_en(1'b1),
         .wbs(wbs),
         .flags(flags),
         .robid(robid),

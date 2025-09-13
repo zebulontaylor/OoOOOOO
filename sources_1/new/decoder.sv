@@ -51,21 +51,21 @@ module decoder(
             16'b0000000000000000  // Halt
         };
         all_fuids = '{
-            4'b0001, // ALU
-            4'b0001, // Add Imm
-            4'b0001, // Xor Imm
-            4'b0010, // Mov
-            4'b0011, // Shift
-            4'b0100, // Mult
-            4'b0101, // Hash
+            4'b0000, // ALU
+            4'b0000, // Add Imm
+            4'b0000, // Xor Imm
+            4'b0001, // Mov
+            4'b0101, // Shift
+            4'b0010, // Mult
+            4'b0011, // Hash
             4'b0110, // Read RAM
-            4'b0001, // Write RAM
-            4'b0010, // Jump
-            4'b0010, // Write Imm
-            4'b0111, // Cjump
+            4'b0111, // Write RAM
+            4'b0001, // Jump
+            4'b0001, // Write Imm
+            4'b0100, // Cjump
             4'b0001, //
             4'b0001, //
-            4'b0010  // Halt
+            4'b0001  // Halt
         };
     end
     
