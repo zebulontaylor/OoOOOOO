@@ -87,7 +87,7 @@ module fuoutput(
             value_out = 8'b0;
         end
         
-        busy = request_cdb | request_rob;
+        busy = awaiting_cdb | awaiting_rob;
     end
 
     always @(posedge clk) begin

@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 09/07/2025 06:42:00 PM
+// Create Date: 09/13/2025 06:15:23 PM
 // Design Name: 
-// Module Name: alufu_tb
+// Module Name: hashfu_tb
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module alufu_tb();
+module hashfu_tb();
     reg clk;
     reg rst;
 
@@ -45,7 +45,7 @@ module alufu_tb();
 
     wire busy;
 
-    alufu dut (
+    hashfu dut (
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
@@ -87,91 +87,63 @@ module alufu_tb();
         @(posedge clk);
     endtask
 
-    task apply_and_check;
-        input [7:0] op;
-        input [1:0][7:0] vals;
-        input [7:0] wb_val;
-        input [7:0] flag_val;
-        input [3:0] rob_id_val;
-        input [7:0] expected_result;
+    // Function to compute expected hash value
+    function [7:0] calculate_hash;
+        input [7:0] val;
         begin
+            calculate_hash = val;
+            calculate_hash = calculate_hash ^ (calculate_hash << 3);
+            calculate_hash = calculate_hash + 8'h61;
+            calculate_hash = calculate_hash ^ (calculate_hash >> 5);
+            calculate_hash = calculate_hash + 8'h61;
+            calculate_hash = calculate_hash ^ (calculate_hash << 7);
+        end
+    endfunction
+
+    task apply_and_check;
+        input [7:0] val;
+        input [7:0] wb_val;
+        input [3:0] rob_id_val;
+        begin
+            reg [7:0] expected_result;
             @(posedge clk);
-            // Wait for FU to be ready
             wait(busy == 0);
 
             // Send instruction
             input_transmit = 1;
-            operand = op;
-            depvals = vals;
+            depvals = {8'b0, val}; // hashfu only uses one depval
             wbs = wb_val;
-            flags = flag_val;
             robid = rob_id_val;
+            flags = 0;
+            operand = 0;
             @(posedge clk);
             input_transmit = 0;
 
-            // Wait for FU to finish
-            wait(busy == 0);
+            wait(cdb_transmit_out == 1);
+            
+            expected_result = calculate_hash(val);
 
             // Check result
             if (value_out !== expected_result) begin
-                $display("Test failed. Op: %h, Flags: %h, Vals: %h, %h. Expected %d, got %d", op, flag_val, vals[0], vals[1], expected_result, value_out);
+                $display("HASH test failed. Val: %h. Expected %h, got %h", val, expected_result, value_out);
             end else begin
-                $display("Test passed. Op: %h, Flags: %h", op, flag_val);
+                $display("HASH test passed. Val: %h -> %h", val, value_out);
             end
+
+            wait(busy == 0);
         end
     endtask
 
     initial begin
-        $dumpfile("alufu_tb.vcd");
-        $dumpvars(0, alufu_tb);
+        $dumpfile("hashfu_tb.vcd");
+        $dumpvars(0, hashfu_tb);
 
         reset_dut();
 
-        // Test case 1: ADD (reg-reg)
-        apply_and_check(8'h04, {8'd10, 8'd20}, 8'hA1, 8'h00, 4'h1, 8'd30);
-
-        // Test case 2: SUB (reg-reg)
-        apply_and_check(8'h14, {8'd20, 8'd10}, 8'hA2, 8'h00, 4'h2, 8'd10);
-        
-        // Test case 3: ADD Imm (flags[2]=1, flags[3]=1)
-        // aluop = operand
-        apply_and_check(8'd15, {8'd10, 8'd0}, 8'hA3, 8'b0000_1100, 4'h3, 8'd25);
-
-        // Test case 4: XOR Imm (flags[2]=1, flags[3]=0)
-        apply_and_check(8'hF0, {8'hAA, 8'd0}, 8'hA4, 8'b0000_0100, 4'h4, 8'h5A);
-
-        // Test stall
-        $display("Testing stall functionality...");
-        @(posedge clk);
-        wait(busy == 0);
-        
-        rob_transmit = 1;
-        cdb_transmit = 1;
-        input_transmit = 1;
-        operand = 8'h04;
-        depvals = {8'd5, 8'd6};
-        wbs = 8'hA5;
-        flags = 8'h00;
-        robid = 4'h5;
-        
-        @(posedge clk);
-        input_transmit = 0;
-        
-        // FU should be busy now
-        if (busy !== 1) $display("Stall test failed: FU did not become busy.");
-
-        repeat(5) @(posedge clk); // Wait some cycles
-
-        rob_transmit = 0;
-        cdb_transmit = 0;
-
-        wait(busy == 0);
-        if (value_out !== 11) begin
-            $display("Stall test failed. Expected 11, got %d", value_out);
-        end else begin
-            $display("Stall test passed.");
-        end
-        @(posedge clk);
+        apply_and_check(8'h12, 8'hC1, 4'h1);
+        apply_and_check(8'hA5, 8'hC2, 4'h2);
+        apply_and_check(8'hFF, 8'hC3, 4'h3);
+        apply_and_check(8'h00, 8'hC4, 4'h4);
 
         $finish;
     end

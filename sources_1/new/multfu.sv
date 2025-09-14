@@ -19,6 +19,11 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+enum logic [1:0] {
+    IDLE,
+    CALC,
+    DONE
+} states;
 
 module multfu(
     input clk,
@@ -49,28 +54,64 @@ module multfu(
     output reg rob_transmit_out,
     
     // STALLING
-    output reg busy
+    output busy
 );
-    wire[7:0] a, b;
+    // ROB stuff
+    reg[7:0] robidin, wbsin, flagsin;
+    // Values
+    reg[7:0] a, b;
+    reg[1:0] state;
+    reg[2:0] counter;
 
-    always_comb begin
-        a = depvals[0];
-        b = depvals[1];
+    initial state = IDLE;
+    initial counter = 0;
+    initial result = 0;
+
+    wire output_busy;
+    wire compute_busy;
+
+    assign busy = output_busy | compute_busy;
+    assign compute_busy = state != IDLE;
+
+    always @(posedge clk) begin
+        // Locking
+        if (state == IDLE && input_transmit) begin
+            a <= depvals[0];
+            b <= depvals[1];
+            state <= CALC;
+            counter <= 0;
+            result <= 0;
+
+            robidin <= robid;
+            wbsin <= wbs;
+            flagsin <= flags;
+        end
     end
 
     reg[7:0] result;
-    always @(*) begin
-        result = a * b;  // TODO: pipeline this....
+
+    always @(posedge clk) begin
+        if (state == CALC) begin
+            // Suboptimal but good enough for now
+            result <= result + ((a << counter) & {8{b[counter]}});
+            counter <= counter + 1;
+            if (counter == 3'd7) begin
+                state <= DONE;
+            end
+        end
+        if (state == DONE) begin
+            state <= IDLE;
+        end
     end
 
     fuoutput fuoutput_inst(
         .clk(clk),
         .rst(rst),
-        .input_transmit(input_transmit),
+        .input_transmit(state == DONE),
         .cdb_write_en(1'b1),
-        .wbs(wbs),
-        .flags(flags),
-        .robid(robid),
+        .wbs(wbsin),
+        .flags(flagsin),
+        .robid(robidin),
         .result(result),
         .cdb_transmit(cdb_transmit),
         .cdb_transmit_out(cdb_transmit_out),
@@ -82,6 +123,6 @@ module multfu(
         .wbs_out(wbs_out),
         .value_out(value_out),
         .rob_transmit_out(rob_transmit_out),
-        .busy(busy)
+        .busy(output_busy)
     );
 endmodule

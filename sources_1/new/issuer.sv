@@ -40,7 +40,7 @@ module issuer #(
     input[7:0] flags,
     input[7:0] wbs,
     input[7:0] operand,
-    input[7:0] robid,
+    input[3:0] robid,
     input[$clog2(FU_COUNT)-1:0] fuid,
     input[FU_COUNT-1:0] fus_busy,
     
@@ -55,20 +55,21 @@ module issuer #(
     output logic [7:0] fu_operands [FU_COUNT],
     output logic [7:0] fu_wbs [FU_COUNT],
     output logic [7:0] fu_flags [FU_COUNT],
-    output logic [7:0] fu_robids [FU_COUNT],
-    output logic [1:0][7:0] fu_depvals [FU_COUNT],
+    output logic [3:0] fu_robids [FU_COUNT],
+    output logic [1:0][7:0] fu_depvals [FU_COUNT],  
+    output logic [FU_COUNT-1:0] fu_issuing,
 
     output logic prf_requesting,
     output logic [3:0] prf_id
 );
     
-    reg[RS_DEPTH:0][FU_COUNT-1:0] fubus_claimed;
-    reg[FU_COUNT-1:0][RS_DEPTH:0] camtransmit;
+    wire[RS_DEPTH:0][FU_COUNT-1:0] fubus_claimed;
+    wire[FU_COUNT-1:0][RS_DEPTH:0] camtransmit;
     
     wire [7:0] operandouts [FU_COUNT][RS_DEPTH];
     wire [7:0] wbsouts     [FU_COUNT][RS_DEPTH];
     wire [7:0] flagouts    [FU_COUNT][RS_DEPTH];
-    wire [7:0] robidouts   [FU_COUNT][RS_DEPTH];
+    wire [3:0] robidouts   [FU_COUNT][RS_DEPTH];
     
     wire [1:0][7:0] depvalsouts [FU_COUNT][RS_DEPTH];
 
@@ -80,6 +81,10 @@ module issuer #(
     assign stall = stall_for_rs | stall_for_deps;
 
     always @(posedge clk) begin
+        if (rst) begin
+            deps_pending_request <= 0;
+        end
+
         if (issue_instr) begin
             deps_pending_request = {readyregs[readregs[0][4:1]], readyregs[readregs[1][4:1]]};
         end
@@ -97,9 +102,9 @@ module issuer #(
         end
     end
     
+    assign fubus_claimed[0] = fus_busy;
+
     always_comb begin
-        fubus_claimed[0] = fus_busy;
-    
         for (int i = 0; i < FU_COUNT; i++) begin
             fu_operands[i] = '0;
             fu_wbs[i]      = '0;
@@ -150,10 +155,17 @@ module issuer #(
         end
     end
     
+    genvar l;
+    for (l = 0; l < FU_COUNT; l += 1) begin
+        assign camtransmit[l][0] = (l == fuid) && issue_instr;
+    end
+
+
     always_comb begin
+        fu_issuing = rst ? 0 : fubus_claimed[RS_DEPTH];
+
         stall_for_rs = 0;
         for (integer k=0; k<FU_COUNT; k+=1) begin
-            camtransmit[k][0] = (k == fuid) && issue_instr;
             if (camtransmit[k][RS_DEPTH]) begin
                 stall_for_rs = 1;
             end

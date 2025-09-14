@@ -51,9 +51,9 @@ module cjumpfu(
     // STALLING
     output reg busy
 );
-    wire[7:0] a, b;
-    wire[3:0] cond;
-    wire[7:0] updated_flags;
+    reg[7:0] a, b;
+    reg[3:0] cond;
+    reg[7:0] updated_flags;
 
     always_comb begin
         a = depvals[0];
@@ -70,9 +70,9 @@ module cjumpfu(
 
     reg[7:0] result;
 
-    wire msb;
-    wire lsbs;
-    wire take_branch;
+    reg msb;
+    reg lsbs;
+    reg take_branch;
     always_comb begin
         msb = a[7];
         lsbs = |a[6:0];

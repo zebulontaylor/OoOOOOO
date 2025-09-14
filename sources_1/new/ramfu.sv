@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 09/03/2025 11:03:33 AM
+// Create Date: 09/14/2025 10:28:11 AM
 // Design Name: 
-// Module Name: hashfu
+// Module Name: ramfu
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,8 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
-module hashfu(
+module ramfu(
     input clk,
     input rst,
 
@@ -49,22 +48,35 @@ module hashfu(
     output reg rob_transmit_out,
     
     // STALLING
-    output reg busy
+    output reg busy,
+
+    // LED PORT
+    output [7:0] led
 );
-    reg[7:0] a;
+    logic [7:0] ram [256];
+
+    initial ram = '{default: 0};
+
+    wire write_en = flags[1];  // Technically sel imm but we can reuse it
+    reg [7:0] result;
+
+    assign led = ram[255];
 
     always_comb begin
-        a <= depvals[0];
+        if (!write_en) begin
+            result = ram[depvals[0]]; // RAM[A] -> C
+        end else begin
+            result = 0;
+        end
     end
 
-    reg[7:0] result;
-    always @(*) begin
-        result = a;  // TODO: pipeline this....
-        result ^= result << 3;
-        result += 8'h61;
-        result ^= result >> 5;
-        result += 8'h61;
-        result ^= result << 7;
+    always @(posedge clk) begin
+        if (rst) begin
+            ram <= '{default: 0};
+        end
+        if (write_en) begin
+            ram[depvals[0]] <= depvals[1]; // B -> RAM[A]
+        end
     end
 
     fuoutput fuoutput_inst(

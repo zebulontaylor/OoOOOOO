@@ -50,8 +50,8 @@ module selfu(
     // STALLING
     output reg busy
 );
-    wire[7:0] a, b;
-    wire wb_pc;
+    reg[7:0] a, b;
+    reg wb_pc;
 
     always_comb begin
         wb_pc = flags[0];

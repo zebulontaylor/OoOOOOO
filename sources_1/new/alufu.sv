@@ -51,8 +51,8 @@ module alufu(
     // STALLING
     output reg busy
 );
-    wire[3:0] op;
-    wire[7:0] a, b;
+    reg[3:0] op;
+    reg[7:0] a, b;
 
     always_comb begin
         a = depvals[0];

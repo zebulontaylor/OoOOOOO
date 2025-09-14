@@ -26,6 +26,8 @@ module rom(
     );
     
     reg[15:0] rom [63:0];
+
+    initial rom = '{default: 0};
     
     assign instr = rom[pc];
 endmodule

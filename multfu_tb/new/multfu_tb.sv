@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 09/07/2025 06:42:00 PM
+// Create Date: 09/13/2025 05:45:13 PM
 // Design Name: 
-// Module Name: alufu_tb
+// Module Name: multfu_tb
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module alufu_tb();
+module multfu_tb();
     reg clk;
     reg rst;
 
@@ -45,7 +45,7 @@ module alufu_tb();
 
     wire busy;
 
-    alufu dut (
+    multfu dut (
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
@@ -88,90 +88,54 @@ module alufu_tb();
     endtask
 
     task apply_and_check;
-        input [7:0] op;
         input [1:0][7:0] vals;
         input [7:0] wb_val;
-        input [7:0] flag_val;
         input [3:0] rob_id_val;
         input [7:0] expected_result;
         begin
             @(posedge clk);
-            // Wait for FU to be ready
             wait(busy == 0);
 
             // Send instruction
             input_transmit = 1;
-            operand = op;
             depvals = vals;
             wbs = wb_val;
-            flags = flag_val;
             robid = rob_id_val;
+            flags = 0; // multfu doesn't use flags
+            operand = 0; // multfu doesn't use operand
             @(posedge clk);
             input_transmit = 0;
+            
+            $display("Sent instruction at time %t", $time);
 
-            // Wait for FU to finish
-            wait(busy == 0);
+            // FU should be busy for multiple cycles
+            if (busy !== 1) $display("MULT test failed: FU did not become busy.");
+            
+            wait(cdb_transmit_out == 1);
+            $display("FU finished computation at time %t", $time);
+
 
             // Check result
             if (value_out !== expected_result) begin
-                $display("Test failed. Op: %h, Flags: %h, Vals: %h, %h. Expected %d, got %d", op, flag_val, vals[0], vals[1], expected_result, value_out);
+                $display("MULT test failed. Vals: %d * %d. Expected %d, got %d", vals[0], vals[1], expected_result, value_out);
             end else begin
-                $display("Test passed. Op: %h, Flags: %h", op, flag_val);
+                $display("MULT test passed. Vals: %d * %d = %d", vals[0], vals[1], value_out);
             end
+
+            wait(busy == 0);
         end
     endtask
 
     initial begin
-        $dumpfile("alufu_tb.vcd");
-        $dumpvars(0, alufu_tb);
+        $dumpfile("multfu_tb.vcd");
+        $dumpvars(0, multfu_tb);
 
         reset_dut();
 
-        // Test case 1: ADD (reg-reg)
-        apply_and_check(8'h04, {8'd10, 8'd20}, 8'hA1, 8'h00, 4'h1, 8'd30);
-
-        // Test case 2: SUB (reg-reg)
-        apply_and_check(8'h14, {8'd20, 8'd10}, 8'hA2, 8'h00, 4'h2, 8'd10);
-        
-        // Test case 3: ADD Imm (flags[2]=1, flags[3]=1)
-        // aluop = operand
-        apply_and_check(8'd15, {8'd10, 8'd0}, 8'hA3, 8'b0000_1100, 4'h3, 8'd25);
-
-        // Test case 4: XOR Imm (flags[2]=1, flags[3]=0)
-        apply_and_check(8'hF0, {8'hAA, 8'd0}, 8'hA4, 8'b0000_0100, 4'h4, 8'h5A);
-
-        // Test stall
-        $display("Testing stall functionality...");
-        @(posedge clk);
-        wait(busy == 0);
-        
-        rob_transmit = 1;
-        cdb_transmit = 1;
-        input_transmit = 1;
-        operand = 8'h04;
-        depvals = {8'd5, 8'd6};
-        wbs = 8'hA5;
-        flags = 8'h00;
-        robid = 4'h5;
-        
-        @(posedge clk);
-        input_transmit = 0;
-        
-        // FU should be busy now
-        if (busy !== 1) $display("Stall test failed: FU did not become busy.");
-
-        repeat(5) @(posedge clk); // Wait some cycles
-
-        rob_transmit = 0;
-        cdb_transmit = 0;
-
-        wait(busy == 0);
-        if (value_out !== 11) begin
-            $display("Stall test failed. Expected 11, got %d", value_out);
-        end else begin
-            $display("Stall test passed.");
-        end
-        @(posedge clk);
+        apply_and_check({8'd5, 8'd10}, 8'hB1, 4'h1, 8'd50);
+        apply_and_check({8'd7, 8'd8}, 8'hB2, 4'h2, 8'd56);
+        apply_and_check({8'd25, 8'd10}, 8'hB3, 4'h3, 8'd250);
+        apply_and_check({8'd1, 8'd1}, 8'hB4, 4'h4, 8'd1);
 
         $finish;
     end

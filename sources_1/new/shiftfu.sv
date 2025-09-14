@@ -51,7 +51,7 @@ module shiftfu(
     // STALLING
     output reg busy
 );
-    wire[7:0] a, b;
+    reg[7:0] a, b;
 
     always_comb begin
         a = depvals[0];
@@ -60,7 +60,7 @@ module shiftfu(
 
     reg[7:0] result;
     always @(*) begin
-        result = a << b;
+        result <= a << b;
     end
 
     fuoutput fuoutput_inst(

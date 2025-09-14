@@ -28,13 +28,13 @@ module rs(
     input[7:0] operandin,
     input[7:0] wbsin,
     input[7:0] flagin,
-    input[7:0] robidin,
+    input[3:0] robidin,
     
     output reg[7:0] operandout,
     output reg[7:0] wbsout,
     output reg[1:0][7:0] depvalsout,
     output reg[7:0] flagout,
-    output reg[7:0] robidout,
+    output reg[3:0] robidout,
     
     // CAM/CDB
     input[1:0][3:0] depidsin,
@@ -43,16 +43,17 @@ module rs(
     
     // Bus ctrl
     input fuclaimed,
-    output futransmitout,
-    output reg fuclaimedout,
+    output logic futransmitout,
+    output logic fuclaimedout,
     
     input camtransmit,
-    output reg camtransmitout
+    output logic camtransmitout
 );
     
     reg camlocked;
     reg[1:0][3:0] depids;
-    reg[7:0] operand, wbs, flag, robid;
+    reg[7:0] operand, wbs, flag;
+    reg[3:0] robid;
     reg[1:0][7:0] depvals;
     
     reg[1:0] deplocks;
@@ -61,11 +62,6 @@ module rs(
     initial deplocks = 0;
     
     wire can_release;
-    reg releasing;
-    
-    initial releasing = 0;
-    
-    assign futransmitout = releasing;
     
     assign can_release = (deplocks == 2'b11) && camlocked && ~fuclaimed;
     
@@ -81,49 +77,42 @@ module rs(
             robid <= robidin;
             flag <= flagin;
         end
-    end
-    
-    always @(*) begin
-        // Propogate / block cam transmit
-        camtransmitout = camlocked ? camtransmit : 0;
-    
+
         // Lock deps
         for (integer i=0; i < 2; i = i+1) begin
             if (depins == depids[i] && camlocked) begin
-                deplocks[i] = 1;
-                depvals[i] = depinval;
+                deplocks[i] <= 1;
+                depvals[i] <= depinval;
             end
         end
-        
-        // Claim if ready
-        if (can_release || releasing)
+    end
+    
+    always @(*) begin
+        camtransmitout = camlocked ? camtransmit : 0;
+
+        if (can_release) begin
+            operandout = operand;
+            wbsout = wbs;
+            depvalsout = depvals;
+            flagout = flag;
+            robidout = robid;
+            futransmitout = 1;
             fuclaimedout = 1;
-        else
+        end else begin
+            operandout = 0;
+            wbsout = 0;
+            depvalsout = '{default: '0};
+            flagout = 0;
+            robidout = 0;
+            futransmitout = 0;
             fuclaimedout = fuclaimed;
+        end
     end
     
     always @(posedge clk) begin
-        // Release
         if (can_release) begin
             deplocks <= 0;
             camlocked <= 0;
-            
-            releasing <= 1;
-            
-            operandout <= operand;
-            wbsout <= wbs;
-            depvalsout <= depvals;
-            flagout <= flag;
-            robidout <= robid;
-        end
-        
-        if (releasing | rst) begin
-            releasing <= 0;
-            operandout <= 0;
-            wbsout <= 0;
-            depvalsout <= 0;
-            flagout <= 0;
-            robidout <= 0;
         end
     end
 endmodule
