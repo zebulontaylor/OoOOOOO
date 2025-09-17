@@ -56,9 +56,9 @@ module cjumpfu(
     reg[7:0] updated_flags;
 
     always_comb begin
-        a = depvals[0];
-        b = depvals[1];
-        cond = operand[7:4];
+        a = depvals[1];
+        b = depvals[0];
+        cond = operand[3:0];
     end
 
     reg[7:0] stored_result;
@@ -79,14 +79,14 @@ module cjumpfu(
         take_branch = cond[{msb, lsbs}];
         result = b;
         updated_flags = flags;
-        updated_flags[5] = take_branch;
+        updated_flags[5] = !take_branch;
     end
 
     fuoutput fuoutput_inst(
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
-        .cdb_write_en(1'b1),
+        .cdb_write_en(1'b0),
         .wbs(wbs),
         .flags(updated_flags),
         .robid(robid),

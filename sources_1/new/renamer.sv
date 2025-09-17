@@ -44,12 +44,15 @@ endmodule
 module renamer(
     input[3:0] read1in,
     input[3:0] read2in,
+    input[1:0] read_ena_in,
     input[3:0] writein,
-    input[4:0] retirein,
-    output reg[4:0] read1out,
-    output reg[4:0] read2out,
-    output reg[3:0] writeout,
-    output reg[3:0] oldwrite,
+    input write_ena_in,
+    input[3:0] retirein,
+    input retire_ena_in,
+    output reg[3:0] read1out,
+    output reg[3:0] read2out,
+    output reg[1:0] read_ena_out,
+    output reg[7:0] wbsout,
     input clk,
     input rst,
     input ena
@@ -59,45 +62,50 @@ module renamer(
     reg[3:0] next_write;
     reg[15:0] claimed;
     
-    always @(*) begin
+    always @(posedge clk) begin
         if (rst) begin
             claimed <= 0;
-            foreach (regtable[i]) begin
+            for (int i = 0; i < 8; i++) begin
                 regtable[i] <= i;
             end
-            oldwrite <= 0;
-            writeout <= 0;
         end
     end
     
     always @(*) begin
-        if (read1in[0])
-            read1out <= {regtable[read1in[3:1]], 1'b1};
-        else
-            read1out <= 0;
-        if (read2in[0])
-            read2out <= {regtable[read2in[3:1]], 1'b1};
-        else
-            read2out <= 0;
+        read_ena_out = read_ena_in;
+        if (read_ena_in[0]) begin
+            read1out = regtable[read1in[3:0]];
+        end else begin
+            read1out = 0;
+        end
+        
+        if (read_ena_in[1]) begin
+            read2out = regtable[read2in[3:0]];
+        end else begin
+            read2out = 0;
+        end
     end
     
     highbit openbit (claimed, next_write);
     
     always @(*) begin
-        oldwrite <= regtable[writein[3:1]];
-        writeout <= next_write;
+        if (write_ena_in) begin
+            wbsout = {regtable[writein[3:0]], next_write};
+        end else begin
+            wbsout = 0;
+        end
     end
     
     always @(posedge clk) begin
         // Write logic
-        if (writein[0] && ena) begin
+        if (write_ena_in && ena) begin
             claimed[next_write] <= 1;
-            regtable[writein[3:1]] <= next_write;
+            regtable[writein[3:0]] <= next_write;
         end
         
         // Retire logic
-        if (retirein[0] && ena) begin
-            claimed[retirein[4:1]] <= 0;
+        if (retire_ena_in) begin
+            claimed[retirein[3:0]] <= 0;
         end
     end
 endmodule

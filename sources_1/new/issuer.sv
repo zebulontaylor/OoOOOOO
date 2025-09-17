@@ -36,7 +36,8 @@ module issuer #(
     
     input[15:0] readyregs,
     
-    input[1:0][4:0] readregs,
+    input[1:0][3:0] readregs,
+    input[1:0] read_ena,
     input[7:0] flags,
     input[7:0] wbs,
     input[7:0] operand,
@@ -72,8 +73,10 @@ module issuer #(
     wire [3:0] robidouts   [FU_COUNT][RS_DEPTH];
     
     wire [1:0][7:0] depvalsouts [FU_COUNT][RS_DEPTH];
+    wire rs_full_signals [FU_COUNT][RS_DEPTH];
 
     reg[1:0] deps_pending_request;
+    reg[1:0][3:0] deps_pending_id;
 
     reg stall_for_rs;
     reg stall_for_deps;
@@ -85,20 +88,27 @@ module issuer #(
             deps_pending_request <= 0;
         end
 
-        if (issue_instr) begin
-            deps_pending_request = {readyregs[readregs[0][4:1]], readyregs[readregs[1][4:1]]};
+        if (issue_instr & !stall_for_deps) begin
+            deps_pending_request <= {
+                read_ena[1] && (readyregs[readregs[1]] | cdbid == readregs[1]),
+                read_ena[0] && (readyregs[readregs[0]] | cdbid == readregs[0])
+            };
+            deps_pending_id <= {
+                readregs[1],
+                readregs[0]
+            };
         end
 
         prf_requesting = 0;
         prf_id = 0;
         if (deps_pending_request[0]) begin
-            deps_pending_request[0] = 0;
+            deps_pending_request[0] <= 0;
             prf_requesting = 1;
-            prf_id = readregs[0][4:1];
+            prf_id = deps_pending_id[0];
         end else if (deps_pending_request[1]) begin
-            deps_pending_request[1] = 0;
+            deps_pending_request[1] <= 0;
             prf_requesting = 1;
-            prf_id = readregs[1][4:1];
+            prf_id = deps_pending_id[1];
         end
     end
     
@@ -135,7 +145,7 @@ module issuer #(
                 .flagin(flags),
                 .robidin(robid),
                 // dep ids in
-                .depidsin({readregs[0][4:1], readregs[1][4:1]}),
+                .depidsin({readregs[0][3:0], readregs[1][3:0]}),
                 // cdb ins
                 .depins(cdbid),
                 // cdb in val
@@ -150,7 +160,8 @@ module issuer #(
                 .wbsout(wbsouts[j][i]),
                 .flagout(flagouts[j][i]),
                 .robidout(robidouts[j][i]),
-                .depvalsout(depvalsouts[j][i])
+                .depvalsout(depvalsouts[j][i]),
+                .rs_full(rs_full_signals[j][i])
             );
         end
     end
@@ -162,12 +173,16 @@ module issuer #(
 
 
     always_comb begin
-        fu_issuing = rst ? 0 : fubus_claimed[RS_DEPTH];
+        fu_issuing = rst ? 0 : fubus_claimed[RS_DEPTH] & ~fubus_claimed[0];  // TODO: tidy this
 
-        stall_for_rs = 0;
+        stall_for_rs = issue_instr;
         for (integer k=0; k<FU_COUNT; k+=1) begin
-            if (camtransmit[k][RS_DEPTH]) begin
-                stall_for_rs = 1;
+            if (k == fuid && issue_instr) begin
+                for (integer j=0; j<RS_DEPTH; j+=1) begin
+                    if (!rs_full_signals[k][j]) begin
+                        stall_for_rs = 0;
+                    end
+                end
             end
         end
 

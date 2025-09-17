@@ -47,7 +47,10 @@ module rs(
     output logic fuclaimedout,
     
     input camtransmit,
-    output logic camtransmitout
+    output logic camtransmitout,
+    
+    // Occupancy tracking
+    output logic rs_full
 );
     
     reg camlocked;
@@ -64,14 +67,15 @@ module rs(
     wire can_release;
     
     assign can_release = (deplocks == 2'b11) && camlocked && ~fuclaimed;
+    assign rs_full = camlocked;
     
     always @(posedge clk) begin
         // Lock inputs if unclaimed
         if (camtransmit & ~camlocked) begin
-            camlocked <= 1;
+            camlocked = 1;
             
             // Lock data
-            depids <= depidsin;
+            depids = depidsin;
             operand <= operandin;
             wbs <= wbsin;
             robid <= robidin;
@@ -81,7 +85,7 @@ module rs(
         // Lock deps
         for (integer i=0; i < 2; i = i+1) begin
             if (depins == depids[i] && camlocked) begin
-                deplocks[i] <= 1;
+                deplocks[i] = 1;
                 depvals[i] <= depinval;
             end
         end
@@ -110,7 +114,16 @@ module rs(
     end
     
     always @(posedge clk) begin
-        if (can_release) begin
+        if (rst) begin
+            camlocked <= 0;
+            deplocks <= 0;
+            depids <= 0;
+            operand <= 0;
+            wbs <= 0;
+            robid <= 0;
+            flag <= 0;
+            depvals <= 0;
+        end else if (can_release) begin
             deplocks <= 0;
             camlocked <= 0;
         end

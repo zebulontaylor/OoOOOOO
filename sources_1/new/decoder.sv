@@ -22,8 +22,10 @@
 
 module decoder(
     input[15:0] instr,
-    output reg[1:0][4:0] readregs,
-    output reg[4:0] writereg,
+    output reg[1:0][3:0] readregs,
+    output reg[1:0] read_ena,
+    output reg[3:0] writereg,
+    output reg write_ena,
     output reg[7:0] flagouts,
     output reg[3:0] fuid,
     output reg halt
@@ -75,25 +77,35 @@ module decoder(
     
     always_comb begin
         flags = all_flags[4'd15-instr[3:0]];
-        {a, b, c} = instr[15:4];
+        {b, c, a} = instr[15:4];
         flagouts = flags[15:8];
         
-        if (flags[0])
-            writereg = {a, 1'b1};
-        else if (flags[1])
-            writereg = {c, 1'b1};
-        else
+        if (flags[0]) begin
+            writereg = a;
+            write_ena = 1'b1;
+        end else if (flags[1]) begin
+            writereg = c;
+            write_ena = 1'b1;
+        end else begin
             writereg = 0;
+            write_ena = 1'b0;
+        end
         
-        if (flags[2])
-            readregs[0] = {a, 1'b1};
-        else
+        if (flags[2]) begin
+            readregs[0] = a;
+            read_ena[0] = 1'b1;
+        end else begin
             readregs[0] = 0;
+            read_ena[0] = 1'b0;
+        end
         
-        if (flags[3])
-            readregs[1] = {b, 1'b1};
-        else
+        if (flags[3]) begin
+            readregs[1] = b;
+            read_ena[1] = 1'b1;
+        end else begin
             readregs[1] = 0;
+            read_ena[1] = 1'b0;
+        end
         
         fuid = all_fuids[4'd15-instr[3:0]];
         halt = flagouts[4];

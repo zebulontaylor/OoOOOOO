@@ -64,7 +64,7 @@ module alufu(
                 op = 4'h4;
         end else begin // Normal ALU
             b = depvals[1];
-            op = operand[7:4];
+            op = operand[3:0];
         end
     end
 

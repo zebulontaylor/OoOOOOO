@@ -46,12 +46,17 @@ module cpu #(
     rom irom(pc, irom_instr);
     
     always @(posedge clk) begin
-        if ((!stall_fetching | branch_transmit) & !halt) begin
+        if ((!stall_fetching | branch_transmit) & !halt & !issuer_stall) begin
             stall_fetching <= 0;
-            robid <= robid+1;
 
-            if (branch_transmit & !branch_not_taken) begin
-                pc <= new_pc;
+            if (!branch_transmit) begin
+                robid <= robid+1;
+            end else begin
+                robid <= robid-1;
+            end
+
+            if (branch_transmit) begin
+                pc <= branch_not_taken ? pc-1 : new_pc;
             end else begin
                 pc <= pc+1;
             end
@@ -68,44 +73,49 @@ module cpu #(
     
     // DECODER STAGE
     
-    wire[1:0][4:0] decoder_reads;
-    wire[4:0] decoder_writes;
+    wire[1:0][3:0] decoder_reads;
+    wire[1:0] decoder_read_ena;
+    wire[3:0] decoder_writes;
+    wire decoder_write_ena;
     wire[4:0] decoder_flags;
     wire[3:0] decoder_fuid;
     wire decoder_halt;
 
     initial halt = 0;
 
-    reg[1:0][4:0] renamer_reads;
-    reg[4:0] renamer_writes;
+    reg[1:0][3:0] renamer_reads;
+    reg[1:0] renamer_read_ena;
+    reg[3:0] renamer_writes;
+    reg renamer_write_ena;
     reg[4:0] renamer_flags;
     reg[3:0] renamer_fuid;
     reg[7:0] renamer_operand;
-    reg stall_renaming;
     reg[3:0] renamer_robid;
     
     decoder instrdecoder(
         .instr(decoder_instr),
         .readregs(decoder_reads),
+        .read_ena(decoder_read_ena),
         .writereg(decoder_writes),
+        .write_ena(decoder_write_ena),
         .flagouts(decoder_flags),
         .fuid(decoder_fuid),
         .halt(decoder_halt)
     );
     
     always @(posedge clk) begin
-        if (!stall_decoding & !halt) begin
+        if (!stall_decoding & !halt & !issuer_stall) begin
             renamer_reads <= decoder_reads;
+            renamer_read_ena <= decoder_read_ena;
             renamer_writes <= decoder_writes;
+            renamer_write_ena <= decoder_write_ena;
             renamer_flags <= decoder_flags;
             renamer_fuid <= decoder_fuid;
-            renamer_operand <= decoder_instr[7:0];  // MAKE SURE THIS IS THE RIGHT WORD
+            renamer_operand <= decoder_instr[15:8];  // MAKE SURE THIS IS THE RIGHT WORD
             renamer_robid <= decoder_robid;
 
-            stall_renaming <= stall_decoding;
-
             if (decoder_flags[0]) begin
-                stall_fetching <= 1;
+                stall_fetching <= 1; // probably a multiple drivers violation
                 stall_decoding <= 1;
             end
 
@@ -116,7 +126,9 @@ module cpu #(
 
         if (halt) begin
             renamer_reads <= 0;
+            renamer_read_ena <= 0;
             renamer_writes <= 0;
+            renamer_write_ena <= 0;
             renamer_flags <= 0;
             renamer_fuid <= 0;
             renamer_operand <= 0;
@@ -125,42 +137,55 @@ module cpu #(
     
     // RENAMING STAGE
     
-    wire[4:0] retire_in;
-    wire[1:0][4:0] renamed_reads;
+    //assign retire_in = retire_id;
+    //assign retire_ena_in = retire_transmit;
+    wire[1:0][3:0] renamed_reads;
+    wire[1:0] renamed_read_ena;
     wire[7:0] renamed_wbs;
     
-    reg[1:0][4:0] issuer_reads;
+    reg[1:0][3:0] issuer_reads;
+    reg[1:0] issuer_read_ena;
     reg[7:0] issuer_wbs;
     reg[7:0] issuer_flags;
     reg[7:0] issuer_operand;
     reg[3:0] issuer_fuid;
     reg[3:0] issuer_robid;
     reg issue_instr;
-    
+
+    reg stall_renaming;
+
     renamer renamer_instance(
         .clk(clk),
         .rst(rst),
-        .read1in(renamer_reads[0][3:0]),
-        .read2in(renamer_reads[1][3:0]),
-        .writein(renamer_writes[3:0]),
-        .ena(1),
-        .retirein(retire_in),
+        .read1in(renamer_reads[0]),
+        .read2in(renamer_reads[1]),
+        .read_ena_in(renamer_read_ena),
+        .writein(renamer_writes),
+        .write_ena_in(renamer_write_ena),
+        .ena(!stall_renaming),
+        .retirein(retire_id),
+        .retire_ena_in(retire_transmit),
         .read1out(renamed_reads[0]),
         .read2out(renamed_reads[1]),
-        .writeout(renamed_wbs[3:0]),
-        .oldwrite(renamed_wbs[7:4])
+        .read_ena_out(renamed_read_ena),
+        .wbsout(renamed_wbs)
     );
     
     always @(posedge clk) begin
-        issue_instr <= !stall_renaming;
+        issue_instr <= !stall_renaming & !issuer_stall & !stall_renaming;
+        
+        if (!issuer_stall) begin
+            stall_renaming <= stall_decoding;
 
-        if (!stall_renaming) begin
-            issuer_reads <= renamed_reads;
-            issuer_wbs <= renamed_wbs;
-            issuer_flags <= renamer_flags;
-            issuer_fuid <= renamer_fuid;
-            issuer_operand <= renamer_operand;
-            issuer_robid <= renamer_robid;
+            if (!stall_renaming) begin
+                issuer_reads <= renamed_reads;
+                issuer_read_ena <= renamed_read_ena;
+                issuer_wbs <= renamed_wbs;
+                issuer_flags <= renamer_flags;
+                issuer_fuid <= renamer_fuid;
+                issuer_operand <= renamer_operand;
+                issuer_robid <= renamer_robid;
+            end
         end
     end
     
@@ -186,6 +211,7 @@ module cpu #(
         .rst(rst),
         .readyregs(prf_ready_regs),
         .readregs(issuer_reads),
+        .read_ena(issuer_read_ena),
         .flags(issuer_flags),
         .wbs(issuer_wbs),
         .operand(issuer_operand),
@@ -467,7 +493,7 @@ module cpu #(
         .prf_id(rob_prf_id),
         .prf_value(rob_prf_value),
         .branch_transmit(rob_branch_transmit),
-        .new_pc(rob_new_pc),
+        .new_pc_out(rob_new_pc),
         .branch_not_taken(rob_branch_not_taken),
         .retire_transmit(rob_retire_transmit),
         .retire_id(rob_retire_id)
@@ -519,9 +545,11 @@ module cpu #(
             robid <= 0;
             decoder_instr <= 0;
             stall_fetching <= 0;
-            stall_decoding <= 1;
+            stall_decoding <= 0;
             renamer_reads <= 0;
+            renamer_read_ena <= 0;
             renamer_writes <= 0;
+            renamer_write_ena <= 0;
             renamer_flags <= 0;
             renamer_fuid <= 0;
             renamer_operand <= 0;
