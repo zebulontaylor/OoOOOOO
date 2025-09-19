@@ -72,6 +72,9 @@ module renamer(
             claimed[next_write] <= 1;
             regtable[writein[3:0]] <= next_write;
         end
+        if (retire_ena_in) begin
+            claimed[retirein] <= 0;
+        end
     end
     
     always @(*) begin
@@ -99,10 +102,4 @@ module renamer(
         end
     end
     
-    always @(posedge clk) begin
-        // Retire logic
-        if (retire_ena_in) begin
-            claimed[retirein] <= 0;
-        end
-    end
 endmodule

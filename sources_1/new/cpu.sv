@@ -56,6 +56,7 @@ module cpu #(
     wire[4:0] decoder_flags;
     wire[3:0] decoder_fuid;
     wire decoder_halt;
+
     
     // RENAMING STAGE SIGNALS
     reg[1:0][3:0] renamer_reads;
@@ -153,9 +154,12 @@ module cpu #(
     rom irom(pc, irom_instr);
     
     always @(posedge clk) begin
-        if ((!stall_fetching | branch_transmit) & !halt & !issuer_stall) begin
-            stall_fetching <= 0;
-
+        if (rst) begin
+            pc <= 0;
+            robid <= 0;
+            decoder_instr <= 0;
+            decoder_robid <= 0;
+        end else if ((!stall_fetching | branch_transmit) & !halt & !issuer_stall) begin
             if (!branch_transmit) begin
                 robid <= robid+1;
             end else begin
@@ -168,7 +172,6 @@ module cpu #(
                 pc <= pc+1;
             end
 
-            stall_decoding <= stall_fetching;
             decoder_instr <= irom_instr;
             decoder_robid <= robid;
         end
@@ -194,27 +197,10 @@ module cpu #(
     );
     
     always @(posedge clk) begin
-        if (!stall_decoding & !halt & !issuer_stall) begin
-            renamer_reads <= decoder_reads;
-            renamer_read_ena <= decoder_read_ena;
-            renamer_writes <= decoder_writes;
-            renamer_write_ena <= decoder_write_ena;
-            renamer_flags <= decoder_flags;
-            renamer_fuid <= decoder_fuid;
-            renamer_operand <= decoder_instr[15:8];  // MAKE SURE THIS IS THE RIGHT WORD
-            renamer_robid <= decoder_robid;
-
-            if (decoder_flags[0]) begin
-                stall_fetching <= 1; // probably a multiple drivers violation
-                stall_decoding <= 1;
-            end
-
-            if (decoder_halt) begin
-                halt <= 1;
-            end
-        end
-
-        if (halt) begin
+        if (rst) begin
+            halt <= 0;
+            stall_fetching <= 0;
+            stall_decoding <= 0;
             renamer_reads <= 0;
             renamer_read_ena <= 0;
             renamer_writes <= 0;
@@ -222,6 +208,43 @@ module cpu #(
             renamer_flags <= 0;
             renamer_fuid <= 0;
             renamer_operand <= 0;
+        end else begin
+            if (!issuer_stall) begin
+                logic will_fetch;
+                will_fetch = ((!stall_fetching | branch_transmit) & !halt);
+                if (!stall_decoding & !halt & decoder_flags[0]) begin
+                    stall_fetching <= 1;
+                    stall_decoding <= 1;
+                end else if (will_fetch) begin
+                    stall_decoding <= stall_fetching;
+                    stall_fetching <= 0;
+                end
+            end
+
+            if (!stall_decoding & !halt & !issuer_stall) begin
+                renamer_reads <= decoder_reads;
+                renamer_read_ena <= decoder_read_ena;
+                renamer_writes <= decoder_writes;
+                renamer_write_ena <= decoder_write_ena;
+                renamer_flags <= decoder_flags;
+                renamer_fuid <= decoder_fuid;
+                renamer_operand <= decoder_instr[15:8];  // MAKE SURE THIS IS THE RIGHT WORD
+                renamer_robid <= decoder_robid;
+
+                if (decoder_halt) begin
+                    halt <= 1;
+                end
+            end
+
+            if (halt) begin
+                renamer_reads <= 0;
+                renamer_read_ena <= 0;
+                renamer_writes <= 0;
+                renamer_write_ena <= 0;
+                renamer_flags <= 0;
+                renamer_fuid <= 0;
+                renamer_operand <= 0;
+            end
         end
     end
     
@@ -248,19 +271,31 @@ module cpu #(
     );
     
     always @(posedge clk) begin
-        issue_instr <= !stall_renaming & !issuer_stall & !stall_renaming;
-        
-        if (!issuer_stall) begin
-            stall_renaming <= stall_decoding;
+        if (rst) begin
+            issue_instr <= 0;
+            stall_renaming <= 0;
+            issuer_reads <= 0;
+            issuer_read_ena <= 0;
+            issuer_wbs <= 0;
+            issuer_flags <= 0;
+            issuer_fuid <= 0;
+            issuer_operand <= 0;
+            issuer_robid <= 0;
+        end else begin
+            issue_instr <= !stall_renaming & !issuer_stall & !stall_renaming;
+            
+            if (!issuer_stall) begin
+                stall_renaming <= stall_decoding;
 
-            if (!stall_renaming) begin
-                issuer_reads <= renamed_reads;
-                issuer_read_ena <= renamed_read_ena;
-                issuer_wbs <= renamed_wbs;
-                issuer_flags <= renamer_flags;
-                issuer_fuid <= renamer_fuid;
-                issuer_operand <= renamer_operand;
-                issuer_robid <= renamer_robid;
+                if (!stall_renaming) begin
+                    issuer_reads <= renamed_reads;
+                    issuer_read_ena <= renamed_read_ena;
+                    issuer_wbs <= renamed_wbs;
+                    issuer_flags <= renamer_flags;
+                    issuer_fuid <= renamer_fuid;
+                    issuer_operand <= renamer_operand;
+                    issuer_robid <= renamer_robid;
+                end
             end
         end
     end
@@ -487,11 +522,19 @@ module cpu #(
     assign shared_cdb_val = prf_cdb_transmit ? prf_cdb_val : final_cdb_val;
 
     always @(posedge clk) begin
-        rob_transmit <= final_rob_transmit;
-        rob_flags <= final_flags_out;
-        rob_wbs <= final_wbs_out;
-        rob_value <= final_value_out;
-        rob_id <= final_robids_out;
+        if (rst) begin
+            rob_transmit <= 0;
+            rob_flags <= 0;
+            rob_wbs <= 0;
+            rob_value <= 0;
+            rob_id <= 0;
+        end else begin
+            rob_transmit <= final_rob_transmit;
+            rob_flags <= final_flags_out;
+            rob_wbs <= final_wbs_out;
+            rob_value <= final_value_out;
+            rob_id <= final_robids_out;
+        end
     end
 
 
@@ -516,15 +559,27 @@ module cpu #(
     );
 
     always @(posedge clk) begin
-        prf_wb_val <= rob_prf_value;
-        prf_wb_id <= rob_prf_id;
-        prf_old_wb <= retire_id;
-        prf_wb_ena <= rob_prf_transmit;
-        new_pc <= rob_new_pc;
-        branch_transmit <= rob_branch_transmit;
-        branch_not_taken <= rob_branch_not_taken;
-        retire_transmit <= rob_retire_transmit;
-        retire_id <= rob_retire_id;
+        if (rst) begin
+            prf_wb_val <= 0;
+            prf_wb_id <= 0;
+            prf_old_wb <= 0;
+            prf_wb_ena <= 0;
+            new_pc <= 0;
+            branch_transmit <= 0;
+            branch_not_taken <= 0;
+            retire_transmit <= 0;
+            retire_id <= 0;
+        end else begin
+            prf_wb_val <= rob_prf_value;
+            prf_wb_id <= rob_prf_id;
+            prf_old_wb <= retire_id;
+            prf_wb_ena <= rob_prf_transmit;
+            new_pc <= rob_new_pc;
+            branch_transmit <= rob_branch_transmit;
+            branch_not_taken <= rob_branch_not_taken;
+            retire_transmit <= rob_retire_transmit;
+            retire_id <= rob_retire_id;
+        end
     end
 
     // PRF STUFF
@@ -544,40 +599,4 @@ module cpu #(
         .cdb_id(prf_cdb_id),
         .cdb_val(prf_cdb_val)
     );
-
-    // RESET STUFF
-
-    always @(posedge clk) begin
-        if (rst) begin
-            halt <= 0;
-            pc <= 0;
-            robid <= 0;
-            decoder_instr <= 0;
-            stall_fetching <= 0;
-            stall_decoding <= 0;
-            renamer_reads <= 0;
-            renamer_read_ena <= 0;
-            renamer_writes <= 0;
-            renamer_write_ena <= 0;
-            renamer_flags <= 0;
-            renamer_fuid <= 0;
-            renamer_operand <= 0;
-            stall_renaming <= 0;
-            issue_instr <= 0;
-            prf_wb_val <= 0;
-            prf_wb_id <= 0;
-            prf_old_wb <= 0;
-            prf_wb_ena <= 0;
-            new_pc <= 0;
-            branch_transmit <= 0;
-            branch_not_taken <= 0;
-            retire_transmit <= 0;
-            retire_id <= 0;
-            rob_transmit <= 0;
-            rob_flags <= 0;
-            rob_wbs <= 0;
-            rob_value <= 0;
-            rob_id <= 0;
-        end
-    end
 endmodule

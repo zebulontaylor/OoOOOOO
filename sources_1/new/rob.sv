@@ -54,52 +54,59 @@ module rob(
     
     reg[3:0] pos;
 
-    always @(*) begin
+    // Removed combinational reset to avoid multi-driven regs; use synchronous reset below
+    
+    always @(posedge clk) begin
         if (rst) begin
             pos <= 0;
             ready <= 0;
             values_rf <= 0;
             wbs_rf <= 0;
             flags_rf <= 0;
-        end
-    end
-    
-    always @(posedge clk) begin
-        prf_transmit = 0;
-        
-        if (rob_transmit) begin
-            values_rf[robid] <= value;
-            wbs_rf[robid] <= wbs;
-            flags_rf[robid] <= flags;
-            ready[robid] <= 1;
+            prf_transmit <= 0;
+            branch_transmit <= 0;
+            retire_transmit <= 0;
+            prf_id <= 0;
+            prf_value <= 0;
+            new_pc_out <= 0;
+            branch_not_taken <= 0;
+        end else begin
+            prf_transmit = 0;
+            
+            if (rob_transmit) begin
+                values_rf[robid] <= value;
+                wbs_rf[robid] <= wbs;
+                flags_rf[robid] <= flags;
+                ready[robid] <= 1;
 
-            prf_transmit = 1;
-            prf_id <= wbs_rf[robid][3:0];
-            prf_value <= values_rf[robid];
-        end
-        
-        branch_transmit <= 0;
-        retire_transmit <= 0;
-        
-        if (ready[pos]) begin
-            pos <= pos + 1;
-            ready[pos] <= 0;
-            
-            if (!flags_rf[pos][0]) begin  // Reg WB enabled
-                //prf_transmit = 1;
-                retire_transmit <= 1;
-                //prf_id <= wbs_rf[pos][3:0];
-                //prf_value <= values_rf[pos];
-                retire_id <= wbs_rf[pos][7:4];
+                prf_transmit = 1;
+                prf_id <= wbs_rf[robid][3:0];
+                prf_value <= values_rf[robid];
             end
             
-            if (flags_rf[pos][4]) begin  // Halt
-            end
+            branch_transmit <= 0;
+            retire_transmit <= 0;
             
-            if (flags_rf[pos][0]) begin  // Branch
-                branch_transmit <= 1;
-                branch_not_taken <= flags_rf[pos][5];
-                new_pc_out <= values_rf[pos];
+            if (ready[pos]) begin
+                pos <= pos + 1;
+                ready[pos] <= 0;
+                
+                if (!flags_rf[pos][0]) begin  // Reg WB enabled
+                    //prf_transmit = 1;
+                    retire_transmit <= 1;
+                    //prf_id <= wbs_rf[pos][3:0];
+                    //prf_value <= values_rf[pos];
+                    retire_id <= wbs_rf[pos][7:4];
+                end
+                
+                if (flags_rf[pos][4]) begin  // Halt
+                end
+                
+                if (flags_rf[pos][0]) begin  // Branch
+                    branch_transmit <= 1;
+                    branch_not_taken <= flags_rf[pos][5];
+                    new_pc_out <= values_rf[pos];
+                end
             end
         end
     end

@@ -46,11 +46,6 @@ module prf #(
     reg[PRF_SIZE-1:0][7:0] rf;
     
     always @(*) begin
-        if (rst)
-            rf = 0;
-    end
-    
-    always @(*) begin
         cdb_transmit = requesting;
         if (requesting) begin
             cdb_id = requested_id;
