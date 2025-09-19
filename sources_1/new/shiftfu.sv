@@ -52,15 +52,25 @@ module shiftfu(
     output reg busy
 );
     reg[7:0] a, b;
+    reg[3:0] op;
 
     always_comb begin
-        a = depvals[0];
-        b = depvals[1];
+        a = depvals[1];
+        b = depvals[0];
+        op = operand[3:0];
     end
 
     reg[7:0] result;
     always @(*) begin
-        result <= a << b;
+        case (op)
+            4'h0: result <= a << b;
+            4'h1: result <= a >> b;
+            4'h2: result <= a >>> b;
+            4'h3: result <= a << b;
+            4'h4: result <= a >> b;
+            4'h5: result <= a >>> b;
+            default: result <= 8'b0;
+        endcase
     end
 
     fuoutput fuoutput_inst(

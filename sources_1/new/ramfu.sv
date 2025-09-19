@@ -64,7 +64,7 @@ module ramfu(
 
     always_comb begin
         if (!write_en) begin
-            result = ram[depvals[0]]; // RAM[A] -> C
+            result = ram[depvals[1]]; // RAM[A] -> C
         end else begin
             result = 0;
         end
@@ -75,7 +75,7 @@ module ramfu(
             ram <= '{default: 0};
         end
         if (write_en) begin
-            ram[depvals[0]] <= depvals[1]; // B -> RAM[A]
+            ram[depvals[1]] <= depvals[0]; // B -> RAM[A]
         end
     end
 

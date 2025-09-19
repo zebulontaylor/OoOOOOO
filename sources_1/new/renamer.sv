@@ -105,7 +105,7 @@ module renamer(
         
         // Retire logic
         if (retire_ena_in) begin
-            claimed[retirein[3:0]] <= 0;
+            claimed[retirein] <= 0;
         end
     end
 endmodule

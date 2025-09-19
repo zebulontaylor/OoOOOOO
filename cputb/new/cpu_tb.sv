@@ -48,68 +48,81 @@ module cpu_tb;
         // PC=4: Write Imm 0 -> r6
         dut.irom.rom[4] = 16'h006B;
 
-        // PC=5: Write Imm 10 -> r7 (target for first cjump to PC=10)
-        dut.irom.rom[5] = 16'h0A7B;
+        // PC=5: Write Imm 12 -> r7 (target for first cjump to PC=12)
+        dut.irom.rom[5] = 16'h0C7B;
 
-        // PC=6: AND r1 & r4 -> r1
-        dut.irom.rom[6] = 16'h4211;
+        // PC=6: MOV r1 -> r0 (save original r1 value)
+        /* 0 (unused) | 0 (target) | 1 (source) | 4 (opcode) */
+        dut.irom.rom[6] = 16'h0014;
 
-        // PC=7: Cjump if r1 != 0 to PC=10 (using inverse cond=1 for ==0)
-        dut.irom.rom[7] = 16'h721C;
+        // PC=7: AND r1 & r4 -> r1 (check if odd)
+        /* 4 (b) | 2 (a) | 1 (op) | 1 (opcode) */
+        dut.irom.rom[7] = 16'h4211;
 
-        // PC=8: Shift r1 >> 1 -> r1
-        dut.irom.rom[8] = 16'h4115;
+        // PC=8: Cjump if r1 != 0 to PC=12 (using inverse cond=1 for ==0)
+        /* 7 (target PC) | 2 (cond) | 1 (reg to evaluate) | C (opcode) */
+        dut.irom.rom[8] = 16'h721C;
 
-        // PC=9: Jump to PC=13
-        dut.irom.rom[9] = 16'h0D0A;
+        // PC=9: Shift r0 >> 1 -> r0 (even case: r0 = original_r0 >> 1)
+        /* 4 (b; 1) | 1 (op; >>) | 0 (a; r0) | 5 (opcode) */
+        dut.irom.rom[9] = 16'h4105;
 
-        // PC=10: Mult r1 * r5 -> r3
-        dut.irom.rom[10] = 16'h5316;
+        // PC=10: MOV r0 -> r1
+        /* 0 (unused) | 1 (target) | 0 (source) | 4 (opcode) */
+        dut.irom.rom[10] = 16'h0104;
 
-        // PC=11: MOV r3 -> r1
-        dut.irom.rom[11] = 16'h0314;
+        // PC=11: Jump to PC=15
+        dut.irom.rom[11] = 16'h0F0A;
 
-        // PC=12: ADD r1 + r4 -> r1
-        dut.irom.rom[12] = 16'h4011;
+        // PC=12: Mult r0 * r5 -> r3 (odd case: use original r1 value)
+        dut.irom.rom[12] = 16'h5306;
 
-        // PC=13: ADD r2 + r4 -> r2
-        dut.irom.rom[13] = 16'h4021;
+        // PC=13: MOV r3 -> r1
+        /* 0 (unused) | 1 (target) | 3 (source) | 4 (opcode) */
+        dut.irom.rom[13] = 16'h0134;
 
-        // PC=14: NOP
-        dut.irom.rom[14] = 16'h0000;
+        // PC=14: ADD r1 + r4 -> r1
+        dut.irom.rom[14] = 16'h4011;
 
-        // PC=15: Write RAM r1 -> ram[r6]
-        dut.irom.rom[15] = 16'h1069;
+        // PC=15: ADD r2 + r4 -> r2
+        dut.irom.rom[15] = 16'h4021;
 
-        // PC=16: ADD r6 + r4 -> r6
-        dut.irom.rom[16] = 16'h4061;
+        // PC=16: NOP
+        dut.irom.rom[16] = 16'h0000;
 
-        // PC=17: MOV r1 -> r0
-        dut.irom.rom[17] = 16'h0014;
+        // PC=17: Write RAM r1 -> ram[r6]
+        dut.irom.rom[17] = 16'h1069;
 
-        // PC=18: SUB r0 - r4 -> r0
-        dut.irom.rom[18] = 16'h4101;
+        // PC=18: ADD r6 + r4 -> r6
+        dut.irom.rom[18] = 16'h4061;
 
-        // PC=19: Write Imm 22 -> r3 (target for second cjump to PC=22)
-        dut.irom.rom[19] = 16'h163B;
+        // PC=19: MOV r1 -> r0
+        /* 0 (unused) | 0 (target) | 1 (source) | 4 (opcode) */
+        dut.irom.rom[19] = 16'h0014;
 
-        // PC=20: Cjump if r0 == 0 to PC=22 (using inverse cond=2 for !=0)
-        dut.irom.rom[20] = 16'h320C;
+        // PC=20: SUB r0 - r4 -> r0
+        dut.irom.rom[20] = 16'h4101;
 
-        // PC=21: Jump to PC=6 (loop back)
-        dut.irom.rom[21] = 16'h060A;
+        // PC=21: Write Imm 24 -> r3 (target for second cjump to PC=24)
+        dut.irom.rom[21] = 16'h183B;
 
-        // PC=22: Write Imm 255 -> r7
-        dut.irom.rom[22] = 16'hFF7B;
+        // PC=22: Cjump if r0 == 0 to PC=24 (using inverse cond=2 for !=0)
+        dut.irom.rom[22] = 16'h310C;
 
-        // PC=23: Write RAM r2 -> ram[r7]
-        dut.irom.rom[23] = 16'h2079;
+        // PC=23: Jump to PC=6 (loop back to save r1 and check again)
+        dut.irom.rom[23] = 16'h060A;
 
-        // PC=24: Halt
-        dut.irom.rom[24] = 16'h000F;
+        // PC=24: Write Imm 255 -> r7
+        dut.irom.rom[24] = 16'hFF7B;
+
+        // PC=25: Write RAM r2 -> ram[r7]
+        dut.irom.rom[25] = 16'h2079;
+
+        // PC=26: Halt
+        dut.irom.rom[26] = 16'h000F;
 
         // Initialize remaining ROM to NOPs
-        for (int i = 25; i < 64; i++) begin
+        for (int i = 27; i < 64; i++) begin
             dut.irom.rom[i] = 16'h0000; // NOP
         end
 

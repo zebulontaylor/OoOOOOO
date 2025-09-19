@@ -66,7 +66,7 @@ module selfu(
 
     reg[7:0] result;
     always @(*) begin
-        result = flags[1] ? b : a;
+        result = flags[2] ? b : a;
     end
 
     fuoutput fuoutput_inst(

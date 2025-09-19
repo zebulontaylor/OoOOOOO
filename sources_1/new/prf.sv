@@ -34,10 +34,8 @@ module prf #(
     input[3:0] requested_id,
     input requesting,
     
-    input[7:0] wb_val,
-    input[3:0] wb_id,
     input[3:0] old_wb,
-    input wb_ena,
+    input retire_ena,
 
     output reg[PRF_SIZE-1:0] ready_regs,
 
@@ -64,9 +62,7 @@ module prf #(
     end
     
     always @(posedge clk) begin
-        if (wb_ena) begin
-            rf[wb_id] <= wb_val;
-            ready_regs[wb_id] <= 1;
+        if (retire_ena) begin
             ready_regs[old_wb] <= 0; // retired
         end
         

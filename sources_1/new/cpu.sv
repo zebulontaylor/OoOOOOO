@@ -162,7 +162,7 @@ module cpu #(
         .read_ena_in(renamer_read_ena),
         .writein(renamer_writes),
         .write_ena_in(renamer_write_ena),
-        .ena(!stall_renaming),
+        .ena(!stall_renaming & !issuer_stall),
         .retirein(retire_id),
         .retire_ena_in(retire_transmit),
         .read1out(renamed_reads[0]),
@@ -502,7 +502,7 @@ module cpu #(
     always @(posedge clk) begin
         prf_wb_val <= rob_prf_value;
         prf_wb_id <= rob_prf_id;
-        prf_old_wb <= rob_prf_id;
+        prf_old_wb <= retire_id;
         prf_wb_ena <= rob_prf_transmit;
         new_pc <= rob_new_pc;
         branch_transmit <= rob_branch_transmit;
@@ -526,10 +526,8 @@ module cpu #(
         .shared_cdb_val(shared_cdb_val),
         .requested_id(prf_requested_id),
         .requesting(prf_requesting),
-        .wb_val(prf_wb_val),
-        .wb_id(prf_wb_id),
-        .old_wb(prf_old_wb),
-        .wb_ena(prf_wb_ena),
+        .retire_ena(retire_transmit),
+        .old_wb(retire_id),
         .ready_regs(prf_ready_regs),
         .cdb_transmit(prf_cdb_transmit),
         .cdb_id(prf_cdb_id),

@@ -81,6 +81,8 @@ module issuer #(
     reg stall_for_rs;
     reg stall_for_deps;
 
+    reg instr_waiting;
+
     assign stall = stall_for_rs | stall_for_deps;
 
     always @(posedge clk) begin
@@ -88,7 +90,8 @@ module issuer #(
             deps_pending_request <= 0;
         end
 
-        if (issue_instr & !stall_for_deps) begin
+        if ((issue_instr | instr_waiting) & !stall_for_deps) begin
+            instr_waiting = 0;
             deps_pending_request <= {
                 read_ena[1] && (readyregs[readregs[1]] | cdbid == readregs[1]),
                 read_ena[0] && (readyregs[readregs[0]] | cdbid == readregs[0])
@@ -102,10 +105,12 @@ module issuer #(
         prf_requesting = 0;
         prf_id = 0;
         if (deps_pending_request[0]) begin
+            instr_waiting = issue_instr | instr_waiting;
             deps_pending_request[0] <= 0;
             prf_requesting = 1;
             prf_id = deps_pending_id[0];
         end else if (deps_pending_request[1]) begin
+            instr_waiting = issue_instr | instr_waiting;
             deps_pending_request[1] <= 0;
             prf_requesting = 1;
             prf_id = deps_pending_id[1];
