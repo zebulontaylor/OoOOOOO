@@ -68,6 +68,9 @@ module renamer(
             for (int i = 0; i < 8; i++) begin
                 regtable[i] <= i;
             end
+        end else if (write_ena_in && ena) begin
+            claimed[next_write] <= 1;
+            regtable[writein[3:0]] <= next_write;
         end
     end
     
@@ -97,12 +100,6 @@ module renamer(
     end
     
     always @(posedge clk) begin
-        // Write logic
-        if (write_ena_in && ena) begin
-            claimed[next_write] <= 1;
-            regtable[writein[3:0]] <= next_write;
-        end
-        
         // Retire logic
         if (retire_ena_in) begin
             claimed[retirein] <= 0;

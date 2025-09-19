@@ -50,6 +50,9 @@ module ramfu(
     // STALLING
     output reg busy,
 
+    // SWITCH INPUT
+    input [15:0] sw,
+
     // LED PORT
     output [7:0] led
 );
@@ -64,7 +67,14 @@ module ramfu(
 
     always_comb begin
         if (!write_en) begin
-            result = ram[depvals[1]]; // RAM[A] -> C
+            // Check if reading from switch addresses
+            if (depvals[1] == 8'd254) begin
+                result = sw[7:0];  // Lower 8 switches
+            end else if (depvals[1] == 8'd253) begin
+                result = sw[15:8]; // Upper 8 switches
+            end else begin
+                result = ram[depvals[1]]; // RAM[A] -> C
+            end
         end else begin
             result = 0;
         end
@@ -75,7 +85,9 @@ module ramfu(
             ram <= '{default: 0};
         end
         if (write_en) begin
-            ram[depvals[1]] <= depvals[0]; // B -> RAM[A]
+            if (depvals[1] != 8'd254 && depvals[1] != 8'd253) begin
+                ram[depvals[1]] <= depvals[0]; // B -> RAM[A]
+            end
         end
     end
 

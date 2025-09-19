@@ -26,22 +26,129 @@ module cpu #(
 )(
     input clk,
     input rst,
+    
+    // SWITCH INPUT
+    input [15:0] sw,
 
     // LED PORT
     output reg[7:0] led
 );
-    // ROM STAGE
+
+    // ============================================================================
+    // ALL SIGNAL DECLARATIONS
+    // ============================================================================
+    
+    // ROM STAGE SIGNALS
     reg halt;
     reg[5:0] pc;
     reg[3:0] robid;
-    
     wire[15:0] irom_instr;
-    
     reg[15:0] decoder_instr;
-
     reg stall_fetching;
     reg stall_decoding;
     reg[3:0] decoder_robid;
+    
+    // DECODER STAGE SIGNALS
+    wire[1:0][3:0] decoder_reads;
+    wire[1:0] decoder_read_ena;
+    wire[3:0] decoder_writes;
+    wire decoder_write_ena;
+    wire[4:0] decoder_flags;
+    wire[3:0] decoder_fuid;
+    wire decoder_halt;
+    
+    // RENAMING STAGE SIGNALS
+    reg[1:0][3:0] renamer_reads;
+    reg[1:0] renamer_read_ena;
+    reg[3:0] renamer_writes;
+    reg renamer_write_ena;
+    reg[4:0] renamer_flags;
+    reg[3:0] renamer_fuid;
+    reg[7:0] renamer_operand;
+    reg[3:0] renamer_robid;
+    wire[1:0][3:0] renamed_reads;
+    wire[1:0] renamed_read_ena;
+    wire[7:0] renamed_wbs;
+    reg stall_renaming;
+    
+    // ISSUING STAGE SIGNALS
+    reg[1:0][3:0] issuer_reads;
+    reg[1:0] issuer_read_ena;
+    reg[7:0] issuer_wbs;
+    reg[7:0] issuer_flags;
+    reg[7:0] issuer_operand;
+    reg[3:0] issuer_fuid;
+    reg[3:0] issuer_robid;
+    reg issue_instr;
+    wire[7:0] fu_operands [FU_COUNT];
+    wire[7:0] fu_wbs [FU_COUNT];
+    wire[7:0] fu_flags [FU_COUNT];
+    wire[3:0] fu_robids [FU_COUNT];
+    wire[1:0][7:0] fu_depvals [FU_COUNT];
+    wire[FU_COUNT-1:0] fu_issuing;
+    wire[FU_COUNT-1:0] fus_busy;
+    wire issuer_stall;
+    wire prf_requesting;
+    wire[3:0] prf_requested_id;
+    
+    // FU OUTPUT SIGNALS
+    wire[3:0] fu_robids_out [FU_COUNT];
+    wire[7:0] fu_flags_out [FU_COUNT];
+    wire[7:0] fu_wbs_out [FU_COUNT];
+    wire[7:0] fu_value_out [FU_COUNT];
+    wire fu_rob_transmit [FU_COUNT+1];
+    wire fu_cdb_transmit [FU_COUNT+1];
+    wire[3:0] fu_cdb_id [FU_COUNT];
+    wire[7:0] fu_cdb_val [FU_COUNT];
+    reg final_rob_transmit;
+    reg[3:0] final_robids_out;
+    reg[7:0] final_flags_out;
+    reg[7:0] final_wbs_out;
+    reg[7:0] final_value_out;
+    reg final_cdb_transmit;
+    reg[3:0] final_cdb_id;
+    reg[7:0] final_cdb_val;
+    reg rob_transmit;
+    reg[7:0] rob_flags;
+    reg[7:0] rob_wbs;
+    reg[7:0] rob_value;
+    reg[3:0] rob_id;
+    
+    // Shared CDB signals (final arbitrated output)
+    wire shared_cdb_transmit;
+    wire[3:0] shared_cdb_id;
+    wire[7:0] shared_cdb_val;
+    
+    // ROB STAGE SIGNALS
+    wire rob_prf_transmit;
+    wire[3:0] rob_prf_id;
+    wire[7:0] rob_prf_value;
+    wire rob_branch_transmit;
+    wire[7:0] rob_new_pc;
+    wire rob_branch_not_taken;
+    wire rob_retire_transmit;
+    wire[3:0] rob_retire_id;
+    reg[7:0] prf_wb_val;
+    reg[3:0] prf_wb_id;
+    reg[3:0] prf_old_wb;
+    reg prf_wb_ena;
+    reg[7:0] new_pc;
+    reg branch_transmit;
+    reg branch_not_taken;
+    reg retire_transmit;
+    reg[3:0] retire_id;
+    
+    // PRF SIGNALS
+    wire[15:0] prf_ready_regs;
+    wire prf_cdb_transmit;
+    wire[3:0] prf_cdb_id;
+    wire[7:0] prf_cdb_val;
+    
+    // ============================================================================
+    // MODULE INSTANTIATIONS AND LOGIC
+    // ============================================================================
+    
+    // ROM STAGE
     
     rom irom(pc, irom_instr);
     
@@ -73,24 +180,7 @@ module cpu #(
     
     // DECODER STAGE
     
-    wire[1:0][3:0] decoder_reads;
-    wire[1:0] decoder_read_ena;
-    wire[3:0] decoder_writes;
-    wire decoder_write_ena;
-    wire[4:0] decoder_flags;
-    wire[3:0] decoder_fuid;
-    wire decoder_halt;
-
     initial halt = 0;
-
-    reg[1:0][3:0] renamer_reads;
-    reg[1:0] renamer_read_ena;
-    reg[3:0] renamer_writes;
-    reg renamer_write_ena;
-    reg[4:0] renamer_flags;
-    reg[3:0] renamer_fuid;
-    reg[7:0] renamer_operand;
-    reg[3:0] renamer_robid;
     
     decoder instrdecoder(
         .instr(decoder_instr),
@@ -139,20 +229,6 @@ module cpu #(
     
     //assign retire_in = retire_id;
     //assign retire_ena_in = retire_transmit;
-    wire[1:0][3:0] renamed_reads;
-    wire[1:0] renamed_read_ena;
-    wire[7:0] renamed_wbs;
-    
-    reg[1:0][3:0] issuer_reads;
-    reg[1:0] issuer_read_ena;
-    reg[7:0] issuer_wbs;
-    reg[7:0] issuer_flags;
-    reg[7:0] issuer_operand;
-    reg[3:0] issuer_fuid;
-    reg[3:0] issuer_robid;
-    reg issue_instr;
-
-    reg stall_renaming;
 
     renamer renamer_instance(
         .clk(clk),
@@ -190,18 +266,6 @@ module cpu #(
     end
     
     // ISSUING STAGE
-    
-    wire[7:0] fu_operands [FU_COUNT];
-    wire[7:0] fu_wbs [FU_COUNT];
-    wire[7:0] fu_flags [FU_COUNT];
-    wire[3:0] fu_robids [FU_COUNT];
-    wire[1:0][7:0] fu_depvals [FU_COUNT];
-    wire[FU_COUNT-1:0] fu_issuing;
-    
-    wire[FU_COUNT-1:0] fus_busy;
-    wire issuer_stall;
-    wire prf_requesting;
-    wire[3:0] prf_requested_id;
 
     issuer #(
         .FU_COUNT(FU_COUNT),
@@ -235,35 +299,6 @@ module cpu #(
 
 
     // FUS
-
-    wire[3:0] fu_robids_out [FU_COUNT];
-    wire[7:0] fu_flags_out [FU_COUNT];
-    wire[7:0] fu_wbs_out [FU_COUNT];
-    wire[7:0] fu_value_out [FU_COUNT];
-    wire fu_rob_transmit [FU_COUNT+1];
-    wire fu_cdb_transmit [FU_COUNT+1];
-    wire[3:0] fu_cdb_id [FU_COUNT];
-    wire[7:0] fu_cdb_val [FU_COUNT];
-
-    reg final_rob_transmit;
-    reg[3:0] final_robids_out;
-    reg[7:0] final_flags_out;
-    reg[7:0] final_wbs_out;
-    reg[7:0] final_value_out;
-    reg final_cdb_transmit;
-    reg[3:0] final_cdb_id;
-    reg[7:0] final_cdb_val;
-
-    reg rob_transmit;
-    reg[7:0] rob_flags;
-    reg[7:0] rob_wbs;
-    reg[7:0] rob_value;
-    reg[3:0] rob_id;
-    
-    // Shared CDB signals (final arbitrated output)
-    wire shared_cdb_transmit;
-    wire[3:0] shared_cdb_id;
-    wire[7:0] shared_cdb_val;
 
     // Initialize CDB chain - first FU gets PRF CDB output
     assign fu_cdb_transmit[0] = prf_cdb_transmit;
@@ -421,6 +456,7 @@ module cpu #(
         .wbs_out(fu_wbs_out[6]),
         .value_out(fu_value_out[6]),
         .busy(fus_busy[6]),
+        .sw(sw),
         .led(led)
     );
 
@@ -461,26 +497,6 @@ module cpu #(
 
     // ROB STAGE
 
-    wire rob_prf_transmit;
-    wire[3:0] rob_prf_id;
-    wire[7:0] rob_prf_value;
-    wire rob_branch_transmit;
-    wire[7:0] rob_new_pc;
-    wire rob_branch_not_taken;
-    wire rob_retire_transmit;
-    wire[3:0] rob_retire_id;
-
-    reg[7:0] prf_wb_val;
-    reg[3:0] prf_wb_id;
-    reg[3:0] prf_old_wb;
-    reg prf_wb_ena;
-
-    reg[7:0] new_pc;
-    reg branch_transmit;
-    reg branch_not_taken;
-    reg retire_transmit;
-    reg[3:0] retire_id;
-
     rob rob_instance(
         .clk(clk),
         .rst(rst),
@@ -512,11 +528,6 @@ module cpu #(
     end
 
     // PRF STUFF
-
-    wire[15:0] prf_ready_regs;
-    wire prf_cdb_transmit;
-    wire[3:0] prf_cdb_id;
-    wire[7:0] prf_cdb_val;
 
     prf prf_instance(
         .clk(clk),

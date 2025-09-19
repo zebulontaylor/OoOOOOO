@@ -4,11 +4,13 @@ module cpu_tb;
 
     logic clk;
     logic rst;
+    logic [15:0] sw;
     logic [7:0] led;
 
     cpu dut (
         .clk(clk),
         .rst(rst),
+        .sw(sw),
         .led(led)
     );
 
@@ -30,11 +32,14 @@ module cpu_tb;
         // Program computes Collatz sequence starting from n=13
         // Stores intermediate values in RAM and final step count in RAM[255] (LED output)
         
+        // Initialize switches (set lower 8 bits to 13 for Collatz test)
+        sw = 16'h000D; // Lower 8 switches = 13, upper 8 switches = 0
+        
         // Reset the CPU
         rst = 1;
 
         // PC=0: Write Imm 13 -> r1
-        dut.irom.rom[0] = 16'h0D1B;
+        /*dut.irom.rom[0] = 16'h0D1B;
 
         // PC=1: Write Imm 0 -> r2
         dut.irom.rom[1] = 16'h002B;
@@ -52,23 +57,23 @@ module cpu_tb;
         dut.irom.rom[5] = 16'h0C7B;
 
         // PC=6: MOV r1 -> r0 (save original r1 value)
-        /* 0 (unused) | 0 (target) | 1 (source) | 4 (opcode) */
+        // 0 (unused) | 0 (target) | 1 (source) | 4 (opcode)
         dut.irom.rom[6] = 16'h0014;
 
         // PC=7: AND r1 & r4 -> r1 (check if odd)
-        /* 4 (b) | 2 (a) | 1 (op) | 1 (opcode) */
+        // 4 (b) | 2 (a) | 1 (op) | 1 (opcode)
         dut.irom.rom[7] = 16'h4211;
 
         // PC=8: Cjump if r1 != 0 to PC=12 (using inverse cond=1 for ==0)
-        /* 7 (target PC) | 2 (cond) | 1 (reg to evaluate) | C (opcode) */
+        // 7 (target PC) | 2 (cond) | 1 (reg to evaluate) | C (opcode)
         dut.irom.rom[8] = 16'h721C;
 
         // PC=9: Shift r0 >> 1 -> r0 (even case: r0 = original_r0 >> 1)
-        /* 4 (b; 1) | 1 (op; >>) | 0 (a; r0) | 5 (opcode) */
+        // 4 (b; 1) | 1 (op; >>) | 0 (a; r0) | 5 (opcode)
         dut.irom.rom[9] = 16'h4105;
 
         // PC=10: MOV r0 -> r1
-        /* 0 (unused) | 1 (target) | 0 (source) | 4 (opcode) */
+        // 0 (unused) | 1 (target) | 0 (source) | 4 (opcode)
         dut.irom.rom[10] = 16'h0104;
 
         // PC=11: Jump to PC=15
@@ -78,7 +83,7 @@ module cpu_tb;
         dut.irom.rom[12] = 16'h5306;
 
         // PC=13: MOV r3 -> r1
-        /* 0 (unused) | 1 (target) | 3 (source) | 4 (opcode) */
+        // 0 (unused) | 1 (target) | 3 (source) | 4 (opcode)
         dut.irom.rom[13] = 16'h0134;
 
         // PC=14: ADD r1 + r4 -> r1
@@ -97,7 +102,7 @@ module cpu_tb;
         dut.irom.rom[18] = 16'h4061;
 
         // PC=19: MOV r1 -> r0
-        /* 0 (unused) | 0 (target) | 1 (source) | 4 (opcode) */
+        // 0 (unused) | 0 (target) | 1 (source) | 4 (opcode)
         dut.irom.rom[19] = 16'h0014;
 
         // PC=20: SUB r0 - r4 -> r0
@@ -125,6 +130,7 @@ module cpu_tb;
         for (int i = 27; i < 64; i++) begin
             dut.irom.rom[i] = 16'h0000; // NOP
         end
+        */
 
         $display("Program loaded. Releasing reset...");
         
@@ -149,6 +155,12 @@ module cpu_tb;
                 $display("RAM[%0d] = %0d", i, dut.ramfu_instance.ram[i]);
             end
         end
+        
+        // Display switch values
+        $display("\n=== Switch Values ===");
+        $display("Switches = 0x%04h", sw);
+        $display("RAM[254] (sw[7:0])  = 0x%02h (%0d)", sw[7:0], sw[7:0]);
+        $display("RAM[253] (sw[15:8]) = 0x%02h (%0d)", sw[15:8], sw[15:8]);
         
         // Verify the result
         if (led == 9) begin

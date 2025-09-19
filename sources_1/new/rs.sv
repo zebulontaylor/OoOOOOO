@@ -89,6 +89,20 @@ module rs(
                 depvals[i] <= depinval;
             end
         end
+
+        if (rst) begin
+            camlocked <= 0;
+            deplocks <= 0;
+            depids <= 0;
+            operand <= 0;
+            wbs <= 0;
+            robid <= 0;
+            flag <= 0;
+            depvals <= 0;
+        end else if (can_release) begin
+            deplocks <= 0;
+            camlocked <= 0;
+        end
     end
     
     always @(*) begin
@@ -110,22 +124,6 @@ module rs(
             robidout = 0;
             futransmitout = 0;
             fuclaimedout = fuclaimed;
-        end
-    end
-    
-    always @(posedge clk) begin
-        if (rst) begin
-            camlocked <= 0;
-            deplocks <= 0;
-            depids <= 0;
-            operand <= 0;
-            wbs <= 0;
-            robid <= 0;
-            flag <= 0;
-            depvals <= 0;
-        end else if (can_release) begin
-            deplocks <= 0;
-            camlocked <= 0;
         end
     end
 endmodule
