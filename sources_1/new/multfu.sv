@@ -62,6 +62,7 @@ module multfu(
     reg[7:0] a, b;
     reg[1:0] state;
     reg[2:0] counter;
+    reg[7:0] result;
 
     initial state = IDLE;
     initial counter = 0;
@@ -86,11 +87,7 @@ module multfu(
             wbsin <= wbs;
             flagsin <= flags;
         end
-    end
-
-    reg[7:0] result;
-
-    always @(posedge clk) begin
+        
         if (state == CALC) begin
             // Suboptimal but good enough for now
             result <= result + ((a << counter) & {8{b[counter]}});

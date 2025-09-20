@@ -149,12 +149,14 @@ module cpu_tb;
         $display("Expected Steps: 9");
         
         // Check some intermediate values stored in RAM for debugging
+        `ifdef RTL_SIM
         $display("\n=== Debugging: Intermediate Values in RAM ===");
         for (int i = 0; i < 10; i++) begin
             if (dut.ramfu_instance.ram[i] != 0) begin
                 $display("RAM[%0d] = %0d", i, dut.ramfu_instance.ram[i]);
             end
         end
+        `endif
         
         // Display switch values
         $display("\n=== Switch Values ===");
@@ -170,26 +172,30 @@ module cpu_tb;
         end
         
         // Additional verification - check if CPU halted properly
+        `ifdef RTL_SIM
         if (dut.halt) begin
             $display("CPU halted properly.");
         end else begin
             $display("WARNING: CPU did not halt - may still be running.");
         end
-        
+        `endif
+        `ifdef RTL_SIM
         $display("\n=== Final Register States (Physical Register File) ===");
         for (int i = 0; i < 16; i++) begin
             // Note: Due to register renaming, architectural registers may be mapped
             // to different physical registers. This shows the raw physical register values.
             $display("PRF[%0d] = %0d", i, dut.prf_instance.rf[i]);
         end
-        
+        `endif
         $finish;
     end
 
     // Monitor key signals during execution
     initial begin
+        `ifdef RTL_SIM
         $monitor("Time=%0t PC=%0d Instr=%04h Halt=%b LED=%0d", 
                  $time, dut.pc, dut.decoder_instr, dut.halt, led);
+        `endif
     end
 
     // Timeout safety

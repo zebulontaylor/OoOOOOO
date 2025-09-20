@@ -91,17 +91,17 @@ module rs(
         end
 
         if (rst) begin
-            camlocked <= 0;
-            deplocks <= 0;
-            depids <= 0;
+            camlocked = 0;
+            deplocks = 0;
+            depids = 0;
             operand <= 0;
             wbs <= 0;
             robid <= 0;
             flag <= 0;
             depvals <= 0;
         end else if (can_release) begin
-            deplocks <= 0;
-            camlocked <= 0;
+            deplocks = 0;
+            camlocked = 0;
         end
     end
     
