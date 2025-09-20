@@ -53,7 +53,7 @@ module cpu #(
     wire[1:0] decoder_read_ena;
     wire[3:0] decoder_writes;
     wire decoder_write_ena;
-    wire[4:0] decoder_flags;
+    wire[7:0] decoder_flags;
     wire[3:0] decoder_fuid;
     wire decoder_halt;
 
@@ -63,7 +63,7 @@ module cpu #(
     reg[1:0] renamer_read_ena;
     reg[3:0] renamer_writes;
     reg renamer_write_ena;
-    reg[4:0] renamer_flags;
+    reg[7:0] renamer_flags;
     reg[3:0] renamer_fuid;
     reg[7:0] renamer_operand;
     reg[3:0] renamer_robid;
@@ -71,6 +71,8 @@ module cpu #(
     wire[1:0] renamed_read_ena;
     wire[7:0] renamed_wbs;
     reg stall_renaming;
+    wire renamer_stall;
+    wire renamer_full;
     
     // ISSUING STAGE SIGNALS
     reg[1:0][3:0] issuer_reads;
@@ -119,6 +121,7 @@ module cpu #(
     wire shared_cdb_transmit;
     wire[3:0] shared_cdb_id;
     wire[7:0] shared_cdb_val;
+    wire shared_cdb_write;
     
     // ROB STAGE SIGNALS
     wire rob_prf_transmit;
@@ -159,7 +162,7 @@ module cpu #(
             robid <= 0;
             decoder_instr <= 0;
             decoder_robid <= 0;
-        end else if ((!stall_fetching | branch_transmit) & !halt & !issuer_stall) begin
+        end else if ((!stall_fetching | branch_transmit) & !halt & !issuer_stall & !renamer_stall) begin
             if (!branch_transmit) begin
                 robid <= robid+1;
             end else begin
@@ -211,8 +214,8 @@ module cpu #(
         end else begin
             if (!issuer_stall) begin
                 logic will_fetch;
-                will_fetch = ((!stall_fetching | branch_transmit) & !halt);
-                if (!stall_decoding & !halt & decoder_flags[0]) begin
+                will_fetch = ((!stall_fetching | branch_transmit) & !halt & !renamer_stall);
+                if (!stall_decoding & !halt & decoder_flags[0] & !renamer_stall) begin
                     stall_fetching <= 1;
                     stall_decoding <= 1;
                 end else if (will_fetch) begin
@@ -221,7 +224,7 @@ module cpu #(
                 end
             end
 
-            if (!stall_decoding & !halt & !issuer_stall) begin
+            if (!stall_decoding & !halt & !issuer_stall & !renamer_stall) begin
                 renamer_reads <= decoder_reads;
                 renamer_read_ena <= decoder_read_ena;
                 renamer_writes <= decoder_writes;
@@ -264,6 +267,8 @@ module cpu #(
         .ena(!stall_renaming & !issuer_stall),
         .retirein(retire_id),
         .retire_ena_in(retire_transmit),
+        .stall(renamer_stall),
+        .full(renamer_full),
         .read1out(renamed_reads[0]),
         .read2out(renamed_reads[1]),
         .read_ena_out(renamed_read_ena),
@@ -282,9 +287,9 @@ module cpu #(
             issuer_operand <= 0;
             issuer_robid <= 0;
         end else begin
-            issue_instr <= !stall_renaming & !issuer_stall & !stall_renaming;
+            issue_instr <= !stall_renaming & !issuer_stall & !renamer_stall;
             
-            if (!issuer_stall) begin
+            if (!issuer_stall & !renamer_stall) begin
                 stall_renaming <= stall_decoding;
 
                 if (!stall_renaming) begin
@@ -520,6 +525,7 @@ module cpu #(
     assign shared_cdb_transmit = prf_cdb_transmit | final_cdb_transmit;
     assign shared_cdb_id = prf_cdb_transmit ? prf_cdb_id : final_cdb_id;
     assign shared_cdb_val = prf_cdb_transmit ? prf_cdb_val : final_cdb_val;
+    assign shared_cdb_write = prf_cdb_transmit ? 1'b0 : 1'b1; // PRF's own rebroadcast shouldn't mark ready
 
     always @(posedge clk) begin
         if (rst) begin
@@ -590,6 +596,7 @@ module cpu #(
         .shared_cdb_transmit(shared_cdb_transmit),
         .shared_cdb_id(shared_cdb_id),
         .shared_cdb_val(shared_cdb_val),
+        .shared_cdb_write(shared_cdb_write),
         .requested_id(prf_requested_id),
         .requesting(prf_requesting),
         .retire_ena(retire_transmit),

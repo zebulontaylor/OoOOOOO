@@ -87,7 +87,7 @@ module alufu(
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
-        .cdb_write_en(1'b1),
+        .cdb_write_en(~flags[7]),
         .wbs(wbs),
         .flags(flags),
         .robid(robid),

@@ -108,7 +108,7 @@ module multfu(
         .clk(clk),
         .rst(rst),
         .input_transmit(state == DONE),
-        .cdb_write_en(1'b1),
+        .cdb_write_en(~flagsin[7]),
         .wbs(wbsin),
         .flags(flagsin),
         .robid(robidin),

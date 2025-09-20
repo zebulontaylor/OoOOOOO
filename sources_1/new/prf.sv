@@ -30,6 +30,8 @@ module prf #(
     input shared_cdb_transmit,
     input[3:0] shared_cdb_id,
     input[7:0] shared_cdb_val,
+    // Gate for marking ready on shared CDB writes
+    input shared_cdb_write,
     
     input[3:0] requested_id,
     input requesting,
@@ -64,13 +66,18 @@ module prf #(
         // Write from shared CDB feedback (includes PRF and FU broadcasts)
         if (shared_cdb_transmit) begin
             rf[shared_cdb_id] <= shared_cdb_val;
-            ready_regs[shared_cdb_id] <= 1;
+            if (shared_cdb_write) begin
+                ready_regs[shared_cdb_id] <= 1;
+            end
         end
 
         if (rst) begin
             rf <= 0;
             ready_regs <= 0;
         end
+
+        ready_regs[0] <= 1;
+        rf[0] <= 0;
     end
     
 endmodule

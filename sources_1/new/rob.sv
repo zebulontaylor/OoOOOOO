@@ -91,7 +91,7 @@ module rob(
                 pos <= pos + 1;
                 ready[pos] <= 0;
                 
-                if (!flags_rf[pos][0]) begin  // Reg WB enabled
+                if (!flags_rf[pos][7]) begin  // Reg PRF write enabled (NO_PRF_WRITE == 0)
                     //prf_transmit = 1;
                     retire_transmit <= 1;
                     //prf_id <= wbs_rf[pos][3:0];

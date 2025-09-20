@@ -93,8 +93,8 @@ module issuer #(
         if ((issue_instr | instr_waiting) & !stall_for_deps) begin
             instr_waiting = 0;
             deps_pending_request <= {
-                read_ena[1] && (readyregs[readregs[1]] | cdbid == readregs[1]),
-                read_ena[0] && (readyregs[readregs[0]] | cdbid == readregs[0])
+                read_ena[1] && (readyregs[readregs[1]] | (cdbid == readregs[1] && cdbtransmit)),
+                read_ena[0] && (readyregs[readregs[0]] | (cdbid == readregs[0] && cdbtransmit))
             };
             deps_pending_id <= {
                 readregs[1],

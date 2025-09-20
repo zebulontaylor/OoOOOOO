@@ -53,6 +53,8 @@ module renamer(
     output reg[3:0] read2out,
     output reg[1:0] read_ena_out,
     output reg[7:0] wbsout,
+    output stall,
+    output full,
     input clk,
     input rst,
     input ena
@@ -64,17 +66,19 @@ module renamer(
     
     always @(posedge clk) begin
         if (rst) begin
-            claimed <= 0;
+            claimed <= 16'h00FF;
             for (int i = 0; i < 8; i++) begin
                 regtable[i] <= i;
             end
-        end else if (write_ena_in && ena) begin
+        end else if (write_ena_in && ena && !(&claimed)) begin
             claimed[next_write] <= 1;
             regtable[writein[3:0]] <= next_write;
         end
         if (retire_ena_in) begin
             claimed[retirein] <= 0;
         end
+
+        claimed[0] <= 1;
     end
     
     always @(*) begin
@@ -95,11 +99,16 @@ module renamer(
     highbit openbit (claimed, next_write);
     
     always @(*) begin
-        if (write_ena_in) begin
+        if (write_ena_in && !(&claimed)) begin
             wbsout = {regtable[writein[3:0]], next_write};
         end else begin
             wbsout = 0;
         end
     end
+
+    // Free list empty indicator
+    assign full = &claimed;
+    // Stall when all physical registers are claimed (free list empty) AND a write is requested
+    assign stall = full & write_ena_in;
     
 endmodule

@@ -73,7 +73,7 @@ module selfu(
         .clk(clk),
         .rst(rst),
         .input_transmit(input_transmit),
-        .cdb_write_en(!wb_pc),
+        .cdb_write_en(~flags[7]),
         .wbs(wbs),
         .flags(flags),
         .robid(robid),

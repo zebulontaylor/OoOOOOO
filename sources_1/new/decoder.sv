@@ -35,7 +35,7 @@ module decoder(
     
     initial begin
         all_flags = '{
-            16'b0000000000000000, // Noop
+            16'b1000000000000000, // Noop (NO_PRF_WRITE in flagouts[7])
             16'b0000000000001101, // ALU
             16'b0000111000000001, // Add Imm
             16'b0000011000000001, // Xor Imm
@@ -44,13 +44,13 @@ module decoder(
             16'b0000000000001110, // Mult
             16'b0000000000000110, // Hash
             16'b0000000000000110, // Read RAM
-            16'b0000001000001100, // Write RAM
-            16'b1000011100000000, // Jump
+            16'b1000001000001100, // Write RAM (NO_PRF_WRITE)
+            16'b1000011100000000, // Jump (NO_PRF_WRITE)
             16'b0000011000000001, // Write Imm
-            16'b0000000100001100, // Cjump
+            16'b1000000100001100, // Cjump (NO_PRF_WRITE)
             16'b1000000000000000, //
             16'b1000000000000000, //
-            16'b0001000000000000  // Halt
+            16'b1001000000000000  // Halt (NO_PRF_WRITE)
         };
         all_fuids = '{
             4'b0000, // Noop
