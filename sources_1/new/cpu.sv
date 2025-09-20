@@ -34,6 +34,18 @@ module cpu #(
     output reg[7:0] led
 );
 
+    // ==========================================================================
+    // Reset synchronizer
+    // ==========================================================================
+    reg rst_ff1;
+    reg rst_ff2;
+    wire rst_sync;
+    always @(posedge clk) begin
+        rst_ff1 <= rst;
+        rst_ff2 <= rst_ff1;
+    end
+    assign rst_sync = rst_ff2;
+
     // ============================================================================
     // ALL SIGNAL DECLARATIONS
     // ============================================================================
@@ -157,7 +169,7 @@ module cpu #(
     rom irom(pc, irom_instr);
     
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_sync) begin
             pc <= 0;
             robid <= 0;
             decoder_instr <= 0;
@@ -200,7 +212,7 @@ module cpu #(
     );
     
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_sync) begin
             halt <= 0;
             stall_fetching <= 0;
             stall_decoding <= 0;
@@ -258,7 +270,7 @@ module cpu #(
 
     renamer renamer_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .read1in(renamer_reads[0]),
         .read2in(renamer_reads[1]),
         .read_ena_in(renamer_read_ena),
@@ -276,7 +288,7 @@ module cpu #(
     );
     
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_sync) begin
             issue_instr <= 0;
             stall_renaming <= 0;
             issuer_reads <= 0;
@@ -312,7 +324,7 @@ module cpu #(
         .RS_DEPTH(RS_DEPTH)
     ) issuer_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .readyregs(prf_ready_regs),
         .readregs(issuer_reads),
         .read_ena(issuer_read_ena),
@@ -346,7 +358,7 @@ module cpu #(
 
     alufu alufu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[0]),
         .operand(fu_operands[0]),
         .depvals(fu_depvals[0]),
@@ -368,7 +380,7 @@ module cpu #(
 
     selfu selfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[1]),
         .operand(fu_operands[1]),
         .depvals(fu_depvals[1]),
@@ -390,7 +402,7 @@ module cpu #(
 
     multfu multfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[2]),
         .operand(fu_operands[2]),
         .depvals(fu_depvals[2]),
@@ -412,7 +424,7 @@ module cpu #(
 
     hashfu hashfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[3]),
         .operand(fu_operands[3]),
         .depvals(fu_depvals[3]),
@@ -434,7 +446,7 @@ module cpu #(
 
     cjumpfu cjumpfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[4]),
         .operand(fu_operands[4]),
         .depvals(fu_depvals[4]),
@@ -456,7 +468,7 @@ module cpu #(
 
     shiftfu shiftfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[5]),
         .operand(fu_operands[5]),
         .depvals(fu_depvals[5]),
@@ -478,7 +490,7 @@ module cpu #(
 
     ramfu ramfu_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .input_transmit(fu_issuing[6]),
         .operand(fu_operands[6]),
         .depvals(fu_depvals[6]),
@@ -528,7 +540,7 @@ module cpu #(
     assign shared_cdb_write = prf_cdb_transmit ? 1'b0 : 1'b1; // PRF's own rebroadcast shouldn't mark ready
 
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_sync) begin
             rob_transmit <= 0;
             rob_flags <= 0;
             rob_wbs <= 0;
@@ -548,7 +560,7 @@ module cpu #(
 
     rob rob_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .rob_transmit(rob_transmit),
         .robid(rob_id),
         .flags(rob_flags),
@@ -565,7 +577,7 @@ module cpu #(
     );
 
     always @(posedge clk) begin
-        if (rst) begin
+        if (rst_sync) begin
             prf_wb_val <= 0;
             prf_wb_id <= 0;
             prf_old_wb <= 0;
@@ -592,7 +604,7 @@ module cpu #(
 
     prf prf_instance(
         .clk(clk),
-        .rst(rst),
+        .rst(rst_sync),
         .shared_cdb_transmit(shared_cdb_transmit),
         .shared_cdb_id(shared_cdb_id),
         .shared_cdb_val(shared_cdb_val),

@@ -33,7 +33,7 @@ module cpu_tb;
         // Stores intermediate values in RAM and final step count in RAM[255] (LED output)
         
         // Initialize switches (set lower 8 bits to 13 for Collatz test)
-        sw = 16'h000D; // Lower 8 switches = 13, upper 8 switches = 0
+        sw = 16'h000F; // Lower 8 switches = 13, upper 8 switches = 0
         
         // Reset the CPU
         rst = 1;

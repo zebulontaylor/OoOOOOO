@@ -88,32 +88,36 @@ module issuer #(
     always @(posedge clk) begin
         if (rst) begin
             deps_pending_request <= 0;
-        end
+            deps_pending_id <= 0;
+            instr_waiting <= 0;
+            prf_requesting <= 0;
+            prf_id <= 0;
+        end else begin
+            if ((issue_instr | instr_waiting) & !stall_for_deps) begin
+                instr_waiting <= 0;
+                deps_pending_request <= {
+                    read_ena[1] && (readyregs[readregs[1]] | (cdbid == readregs[1] && cdbtransmit)),
+                    read_ena[0] && (readyregs[readregs[0]] | (cdbid == readregs[0] && cdbtransmit))
+                };
+                deps_pending_id <= {
+                    readregs[1],
+                    readregs[0]
+                };
+            end
 
-        if ((issue_instr | instr_waiting) & !stall_for_deps) begin
-            instr_waiting = 0;
-            deps_pending_request <= {
-                read_ena[1] && (readyregs[readregs[1]] | (cdbid == readregs[1] && cdbtransmit)),
-                read_ena[0] && (readyregs[readregs[0]] | (cdbid == readregs[0] && cdbtransmit))
-            };
-            deps_pending_id <= {
-                readregs[1],
-                readregs[0]
-            };
-        end
-
-        prf_requesting = 0;
-        prf_id = 0;
-        if (deps_pending_request[0]) begin
-            instr_waiting = issue_instr | instr_waiting;
-            deps_pending_request[0] <= 0;
-            prf_requesting = 1;
-            prf_id = deps_pending_id[0];
-        end else if (deps_pending_request[1]) begin
-            instr_waiting = issue_instr | instr_waiting;
-            deps_pending_request[1] <= 0;
-            prf_requesting = 1;
-            prf_id = deps_pending_id[1];
+            prf_requesting <= 0;
+            prf_id <= 0;
+            if (deps_pending_request[0]) begin
+                instr_waiting <= issue_instr | instr_waiting;
+                deps_pending_request[0] <= 0;
+                prf_requesting <= 1;
+                prf_id <= deps_pending_id[0];
+            end else if (deps_pending_request[1]) begin
+                instr_waiting <= issue_instr | instr_waiting;
+                deps_pending_request[1] <= 0;
+                prf_requesting <= 1;
+                prf_id <= deps_pending_id[1];
+            end
         end
     end
     

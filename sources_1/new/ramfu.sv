@@ -81,9 +81,6 @@ module ramfu(
     end
 
     always @(posedge clk) begin
-        if (rst) begin
-            ram <= '{default: 0};
-        end
         if (write_en) begin
             if (depvals[1] != 8'd254 && depvals[1] != 8'd253) begin
                 ram[depvals[1]] <= depvals[0]; // B -> RAM[A]

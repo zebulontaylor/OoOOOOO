@@ -75,29 +75,40 @@ module multfu(
     assign compute_busy = state != IDLE;
 
     always @(posedge clk) begin
-        // Locking
-        if (state == IDLE && input_transmit) begin
-            a <= depvals[0];
-            b <= depvals[1];
-            state <= CALC;
+        if (rst) begin
+            state <= IDLE;
             counter <= 0;
             result <= 0;
+            a <= 0;
+            b <= 0;
+            robidin <= 0;
+            wbsin <= 0;
+            flagsin <= 0;
+        end else begin
+            // Locking
+            if (state == IDLE && input_transmit) begin
+                a <= depvals[0];
+                b <= depvals[1];
+                state <= CALC;
+                counter <= 0;
+                result <= 0;
 
-            robidin <= robid;
-            wbsin <= wbs;
-            flagsin <= flags;
-        end
-        
-        if (state == CALC) begin
-            // Suboptimal but good enough for now
-            result <= result + ((a << counter) & {8{b[counter]}});
-            counter <= counter + 1;
-            if (counter == 3'd7) begin
-                state <= DONE;
+                robidin <= robid;
+                wbsin <= wbs;
+                flagsin <= flags;
             end
-        end
-        if (state == DONE) begin
-            state <= IDLE;
+            
+            if (state == CALC) begin
+                // Suboptimal but good enough for now
+                result <= result + ((a << counter) & {8{b[counter]}});
+                counter <= counter + 1;
+                if (counter == 3'd7) begin
+                    state <= DONE;
+                end
+            end
+            if (state == DONE) begin
+                state <= IDLE;
+            end
         end
     end
 
